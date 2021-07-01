@@ -1,5 +1,4 @@
-
-
+//# include "TimerOne.h"
 
 
 class Motor{
@@ -54,10 +53,17 @@ class Motor{
   
 };
 
-Motor motor1(3, 11, 10);
-Motor motor2(5, 2, 4);
-Motor motor3(6, 7, 8);
-Motor motor4(9, 12, 13);
+//// uno pin assigment
+//Motor motor1(3, 11, 10);
+//Motor motor2(5, 2, 4);
+//Motor motor3(6, 7, 8);
+//Motor motor4(9, 12, 13);
+
+// mega pin assigment
+Motor motor1(4, 22, 23);
+Motor motor2(5, 25, 24);
+Motor motor3(6, 26, 27);
+Motor motor4(7, 28, 29);
 
 void rotate(float turn_speed) {
   
@@ -74,7 +80,7 @@ void rotate(float turn_speed) {
 unsigned int cycles;
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
 //  TCCR1A = 0;
 //  TCCR1B = bit(CS10);
 }
@@ -100,7 +106,7 @@ void loop() {
   data = Serial.readStringUntil('\n');
   
 //  Serial.print("You sent me");
-//  Serial.println(data);
+  Serial.println(data);
 
   String data1 = data.substring(0, 4);
   String data2 = data.substring(5, 9);
