@@ -21,30 +21,37 @@ long prev_t = 0;
 
 volatile int target_rpm = 200;
 
-float sensed_rotation1;
-float sensed_rotation2;
-
 float m1_rpm;
 float m1_rpm_filtered;
 
-float motor_drive_signal;
+float m2_rpm;
+float m2_rpm_filtered;
+
+float m3_rpm;
+float m3_rpm_filtered;
+
+float m4_rpm;
+float m4_rpm_filtered;
+
+float motor1_drive_signal;
+float motor2_drive_signal;
+float motor3_drive_signal;
+float motor4_drive_signal;
 
 float pid_loop_dur_us = 0.01e6;
-
-const float alpha = 0.5;
-float data_filtered[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-int n = 7;
 
 long curr_t = 0;
 long prev_t1 = 0;
 float delta_t = 0.0;
-float data_filtered1[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2 };
-const int n1 = 7;
 
-float m1_rpm_tag[] = { 0, 0, 1, 0, 0, 0, 1, 0 };
-int n2 = 0;
+int m1_speed;
+int m2_speed;
+int m3_speed;
+int m4_speed;
 
-bool everything_equal = true;
+//float m1_rpm_tag[] = { 0, 0, 1, 0, 0, 0, 1, 0 };
+//int n2 = 0;
+//bool everything_equal = true;
 
 
 class Motor {
@@ -66,7 +73,7 @@ public:
 
     void move(float speed_pct, float time_dur) {
         //      speed_pct = speed_pct*100;
-        speed_pct = speed_pct * 2.55;
+        //speed_pct = speed_pct * 2.55;
         if (speed_pct > 255) speed_pct = 255;
         else if (speed_pct < -255) speed_pct = -255;
 
@@ -163,30 +170,30 @@ public:
         else if (this->output < 0.0) this->output = 0.0;
 
         if (this->integral_error > 170.0) this->integral_error = 170.0;
-        else if (this->integral_error < -170.0) this->integral_error = -170.0;
+        else if (this->integral_error < 0) this->integral_error = 0.0;
 
-        Serial.print(sensed_val);
-        Serial.print(',');
+        //Serial.print(sensed_val);
+        //Serial.print(',');
 
-        Serial.print(this->setpoint);
-        Serial.print(',');
+        //Serial.print(this->setpoint);
+        //Serial.print(',');
 
-        Serial.print(this->error);
-        Serial.print(',');
-        //      
-        Serial.print(this->output);
-        Serial.print(',');
+        //Serial.print(this->error);
+        //Serial.print(',');
+        ////      
+        //Serial.print(this->output);
+        //Serial.print(',');
 
-        Serial.print(delta_t);
-        Serial.print(',');
+        //Serial.print(delta_t);
+        //Serial.print(',');
 
-        Serial.print(this->integral_error);
-        Serial.print(',');
+        //Serial.print(this->integral_error);
+        //Serial.print(',');
 
         //        Serial.print(this->derivative_error);
         //        Serial.print(',');
 
-        Serial.println(m1_rpm);
+//        Serial.println(m1_rpm);
 
         return this->output;
     }
@@ -256,7 +263,7 @@ public:
     uint8_t speed_history_length;
     uint8_t speed_history_index;
 
-    float curr_speed = 0;
+    volatile float curr_speed = 0.0;
 
     SpeedSensor(uint8_t int_pin, void ISR_func(), float diskslots, float* speed_history, uint8_t speed_history_length) {
         attachInterrupt(digitalPinToInterrupt(int_pin), ISR_func, RISING);
@@ -267,7 +274,7 @@ public:
 
     }
 
-    void calculate_speed() {
+    float calculate_speed() {
         // ISR speed calculation method
 
         // time difference      
@@ -279,9 +286,11 @@ public:
 
         this->curr_speed = (60.0 / (this->delta_t * this->diskslots)) * 1.0e3;
 
+        return this->curr_speed;
+
     }
 
-    void detect_zero_speed() {
+    float detect_zero_speed() {
         // ISR timerone setting speed to 0 when wheel is stopped method
 
         // set speed to 0 when wheel is no longer rotating
@@ -298,6 +307,8 @@ public:
             }
         }
 
+        return this->curr_speed;
+
     }
 
 };
@@ -312,10 +323,13 @@ uint8_t size_fir1 = sizeof(fir_coeff1) / sizeof(float);
 float* fir_buf1 = new float[size_fir1];
 float* fir_buf2 = new float[size_fir1];
 float* fir_buf3 = new float[size_fir1];
+float* fir_buf4 = new float[size_fir1];
 
 FIR fir1(size_fir1, fir_coeff1, fir_buf1);
 FIR fir2(size_fir1, fir_coeff1, fir_buf2);
 FIR fir3(size_fir1, fir_coeff1, fir_buf3);
+FIR fir4(size_fir1, fir_coeff1, fir_buf4);
+
 
 //PID pid1(1, 0.9, 2.624);
 //PID pid1(0.0296135794214367, 0.217772079012672, 0.00100674532075656);
@@ -323,6 +337,10 @@ FIR fir3(size_fir1, fir_coeff1, fir_buf3);
 //PID pid1(0.733704837954405, 5.63837220103501, 0.0238687146770339);
 
 PID pid1(0.260526977432438, 1.41893450525107, 0.0106458398336518);  // this is pretty good with the 10 coeffs lpf
+PID pid2(0.260526977432438, 1.41893450525107, 0.0106458398336518);  // this is pretty good with the 10 coeffs lpf
+PID pid3(0.260526977432438, 1.41893450525107, 0.0106458398336518);  // this is pretty good with the 10 coeffs lpf
+PID pid4(0.260526977432438, 1.41893450525107, 0.0106458398336518);  // this is pretty good with the 10 coeffs lpf
+
 //PID pid1(0.81339, 4.414, 0.01356);
 
 //PID pid1(0.5029, 2.352, 0.02946);
@@ -330,9 +348,19 @@ PID pid1(0.260526977432438, 1.41893450525107, 0.0106458398336518);  // this is p
 //PID pid1(0.4064, 1.813, 0.02151); // this is pretty good as well
 
 void ISR_count1();
+void ISR_count2();
+void ISR_count3();
+void ISR_count4();
 
-float s1_spd_his[] = {0,0,0,0,0,0,0,0};
-SpeedSensor sensor1(2, ISR_count1, 20.0, s1_spd_his,8);
+float s1_spd_his[] = { 0,0,0,0,0,0,0,0 };
+float s2_spd_his[] = { 0,0,0,0,0,0,0,0 };
+float s3_spd_his[] = { 0,0,0,0,0,0,0,0 };
+float s4_spd_his[] = { 0,0,0,0,0,0,0,0 };
+
+SpeedSensor sensor1(2, ISR_count1, 20.0, s1_spd_his, 8);
+SpeedSensor sensor2(3, ISR_count2, 20.0, s2_spd_his, 8);
+SpeedSensor sensor3(18, ISR_count3, 20.0, s3_spd_his, 8);
+SpeedSensor sensor4(19, ISR_count4, 20.0, s4_spd_his, 8);
 
 // Interrupt Service Routines
 // Motor 1 pulse count ISR
@@ -340,26 +368,34 @@ void ISR_count1()
 {
     //    counter1++;  // increment Motor 1 counter value
 
-    //// time difference
-    //curr_t = micros();
-    //delta_t = ((float)(curr_t - prev_t1)) / (1.0e3);
-    //prev_t1 = curr_t;
+//    // time difference
+//    curr_t = micros();
+//    delta_t = ((float)(curr_t - prev_t1)) / (1.0e3);
+//    prev_t1 = curr_t;
+//    m1_rpm = (60.0 / (delta_t * diskslots)) * 1.0e3;
 
-    //m1_rpm = (60.0 / (delta_t * diskslots)) * 1.0e3;
+//        m1_rpm = fir2.FIR_filter_update_c(m1_rpm);
 
-    //    m1_rpm = fir2.FIR_filter_update_c(m1_rpm);
-
-    sensor1.calculate_speed();
-
+    m1_rpm = sensor1.calculate_speed();
 }
 
 // Motor 2 pulse count ISR
 void ISR_count2()
 {
-    //    counter2++;  // increment Motor 2 counter value
+    m2_rpm = sensor2.calculate_speed();
 }
 
+// Motor 2 pulse count ISR
+void ISR_count3()
+{
+    m3_rpm = sensor3.calculate_speed();
+}
 
+// Motor 2 pulse count ISR
+void ISR_count4()
+{
+    m4_rpm = sensor4.calculate_speed();
+}
 
 
 // TimerOne ISR
@@ -367,77 +403,105 @@ void ISR_timerone()
 {
     Timer1.detachInterrupt();  // Stop the timer
 
-//    sensed_rotation1 = (counter1 / diskslots) * 60.00 * (1.0e6 / pid_loop_dur_us);  // calculate RPM for Motor 1
-//    counter1 = 0;  //  reset counter to zero
+    m1_rpm_filtered = fir1.FIR_filter_update_c(m1_rpm);
+    m2_rpm_filtered = fir2.FIR_filter_update_c(m2_rpm);
+    m3_rpm_filtered = fir3.FIR_filter_update_c(m3_rpm);
+    m4_rpm_filtered = fir4.FIR_filter_update_c(m4_rpm);
 
+    Serial.print(m1_rpm_filtered);
+    Serial.print(',');
+    Serial.print(m2_rpm_filtered);
+    Serial.print(',');
+    Serial.print(m3_rpm_filtered);
+    Serial.print(',');
+    Serial.println(m4_rpm_filtered);
 
-//    sensed_rotation1 = fir1.FIR_filter_update_c(sensed_rotation1);
-
-    //  sensed_rotation2 = (counter2 / diskslots) * 60.00 * (1.0e6/pid_loop_dur_us);  // calculate RPM for Motor 2
-    //  counter2 = 0;  //  reset counter to zero
-
-    //m1_rpm_filtered = fir2.FIR_filter_update_c(m1_rpm);
-
-    m1_rpm_filtered = fir2.FIR_filter_update_c(sensor1.curr_speed);
+    //    m1_rpm_filtered = sensor1.curr_speed;
+    //    m1_rpm_filtered = fir2.FIR_filter_update_c(sensor1.curr_speed);   // sensor1.curr_speed becomes 0 every 4 or so samples, seems that accessing the object's attribute doesn't work too well. Temp solution is to use global var
 
     sensor1.detect_zero_speed();
+    sensor2.detect_zero_speed();
+    sensor3.detect_zero_speed();
+    sensor4.detect_zero_speed();
 
-    //// set speed to 0 when wheel is no longer rotating
-    //if (n2 > (((sizeof(m1_rpm_tag)) / 4) - 1)) {
-    //    n2 = 0;
-    //}
 
-    //m1_rpm_tag[n2] = m1_rpm;
-    //n2++;
-
-    //everything_equal = true;
-    //for (unsigned i = 0; i < (sizeof(m1_rpm_tag) / 4) - 1; i++) {
-    //    if (m1_rpm_tag[i] != m1_rpm_tag[0]) {
-    //        everything_equal = false;
+    //    // set speed to 0 when wheel is no longer rotating
+    //    if (n2 > (((sizeof(m1_rpm_tag)) / 4) - 1)) {
+    //        n2 = 0;
     //    }
-    //}
-    //if (everything_equal) m1_rpm = 0;
-
-
+    //    m1_rpm_tag[n2] = m1_rpm;
+    //    n2++;
+    //    everything_equal = true;
+    //    for (unsigned i = 0; i < (sizeof(m1_rpm_tag) / 4) - 1; i++) {
+    //        if (m1_rpm_tag[i] != m1_rpm_tag[0]) {
+    //            everything_equal = false;
+    //        }
+    //    }
+    //    if (everything_equal) m1_rpm = 0;
 
     // time difference
     long curr_t = micros();
     float delta_t = ((float)(curr_t - prev_t)) / (1.0e6);
     prev_t = curr_t;
 
-    //  motor_drive_signal = map(pid1.compute(sensed_rotation1, target_rpm, delta_t), 0, 350, 0, 255);
+    int mapped_m1_speed;
+    int mapped_m2_speed;
+    int mapped_m3_speed;
+    int mapped_m4_speed;
 
-    motor_drive_signal = pid1.compute(m1_rpm_filtered, target_rpm, delta_t);
+    mapped_m1_speed = map(abs(m1_speed), 0, 140, 0, 350);
+    mapped_m2_speed = map(abs(m2_speed), 0, 140, 0, 350);
+    mapped_m3_speed = map(abs(m3_speed), 0, 140, 0, 350);
+    mapped_m4_speed = map(abs(m4_speed), 0, 140, 0, 350);
 
-    //    motor_drive_signal = fir3.FIR_filter_update_c(motor_drive_signal);
+    motor1_drive_signal = pid1.compute(m1_rpm_filtered, mapped_m1_speed, delta_t);
+    motor2_drive_signal = pid2.compute(m2_rpm_filtered, mapped_m2_speed, delta_t);
+    motor3_drive_signal = pid3.compute(m3_rpm_filtered, mapped_m3_speed, delta_t);
+    motor4_drive_signal = pid4.compute(m4_rpm_filtered, mapped_m4_speed, delta_t);
 
-    motor1.forward(motor_drive_signal, 0.0);
+    if (mapped_m1_speed < 0) motor1_drive_signal = -1.0 * motor1_drive_signal;
+    if (mapped_m2_speed < 0) motor2_drive_signal = -1.0 * motor2_drive_signal;
+    if (mapped_m3_speed < 0) motor3_drive_signal = -1.0 * motor3_drive_signal;
+    if (mapped_m4_speed < 0) motor4_drive_signal = -1.0 * motor4_drive_signal;
 
-    //  motor1.move(0, 0);
+    //motor1_drive_signal = pid1.compute(m1_rpm_filtered, target_rpm, delta_t);
+    //motor2_drive_signal = pid2.compute(m2_rpm_filtered, target_rpm, delta_t);
+    //motor3_drive_signal = pid3.compute(m3_rpm_filtered, target_rpm, delta_t);
+    //motor4_drive_signal = pid4.compute(m4_rpm_filtered, target_rpm, delta_t);
+
+    //motor1.forward(motor1_drive_signal, 0.0);
+    //motor2.forward(motor2_drive_signal, 0.0);
+    //motor3.forward(motor3_drive_signal, 0.0);
+    //motor4.forward(motor4_drive_signal, 0.0);
+
+    motor1.move(motor1_drive_signal, 0.0);
+    motor2.move(motor2_drive_signal, 0.0);
+    motor3.move(motor3_drive_signal, 0.0);
+    motor4.move(motor4_drive_signal, 0.0);
 
     Timer1.attachInterrupt(ISR_timerone);  // Enable the timer
 }
 
 void setup() {
     Serial.begin(115200);
-    //  TCCR1A = 0;
-    //  TCCR1B = bit(CS10);
 
-//    // for moving average filter
-//    for (uint8_t n = 0; n < size_fir1; n++) {
-//        fir_coeff1[n] = fir_coeff1[n] / size_fir1;
-//    }
+    //    // for moving average filter
+    //    for (uint8_t n = 0; n < size_fir1; n++) {
+    //        fir_coeff1[n] = fir_coeff1[n] / size_fir1;
+    //    }
 
     Timer1.initialize(pid_loop_dur_us); // set timer for 1sec
-    //attachInterrupt(digitalPinToInterrupt(MOTOR1), ISR_count1, RISING);  // Increase counter 1 when speed sensor pin goes High
+//    attachInterrupt(digitalPinToInterrupt(MOTOR1), ISR_count1, RISING);  // Increase counter 1 when speed sensor pin goes High
     //attachInterrupt(digitalPinToInterrupt(MOTOR2), ISR_count2, RISING);  // Increase counter 2 when speed sensor pin goes High
 
     Timer1.attachInterrupt(ISR_timerone); // Enable the timer
 
   //  Serial.println("Target MotorDrive Current");
 //    Serial.println("SenseVal,SetPoint,Error,Output,deltaT,m1_rpm");
-    Serial.println("SenseVal,SetPoint,Error,Output,deltaT,intError,m1_rpm");
+    //Serial.println("SenseVal,SetPoint,Error,Output,deltaT,intError,m1_rpm");
     //    Serial.println("SenseVal,SetPoint,deltaT,m1_rpm");
+
+    //Serial.println("m1,m2,m3,m4");
 }
 
 void loop() {
@@ -448,52 +512,66 @@ void loop() {
 
     //    motor1.forward(target_rpm, 0.0);
 
-    //    target_rpm = target_rpm + 1;
-    //    delay(50);
+//    // ***************************** uncomment here for normal operation  ***************************** 
+//      joystick_data = Serial.readStringUntil('\n');
+//      
+//    //  Serial.print("You sent me");
+//      Serial.println(joystick_data);
+//      
+//      String data1 = joystick_data.substring(0, 4);
+//      String data2 = joystick_data.substring(5, 9);
+//      String data3 = joystick_data.substring(10, 14);
+//    //  String data4 = joystick_data.substring(15, 19);
+//      
+//      int vy = data1.toInt();
+//      int vx = data2.toInt();
+//      
+//      int turn = data3.toInt();
+//    
+//      motor1.move(vy-vx, 0.0);
+//      motor2.move(vy+vx, 0.0);
+//      motor3.move(vy-vx, 0.0);
+//      motor4.move(vy+vx, 0.0);
+//      
+//      if (turn != 0) {
+//      
+//        rotate(turn);
+//      }
+//    
+//    // ***************************** uncomment here for normal operation  ***************************** 
 
+    //***************************** uncomment here for normal operation*****************************
+    joystick_data = Serial.readStringUntil('\n');
 
-    //  Serial.print(target_rpm);
-    //  Serial.print(',');
-    //  Serial.print(motor_drive_signal);
-    //  Serial.print(',');
-    //  Serial.println(sensed_rotation1);
+    //  Serial.print("You sent me");
+    Serial.println(joystick_data);
 
-    //  motor1.move(0.0, 0.0);
-    //  motor2.move(0.0, 0.0);
-    //  motor3.move(0.0, 0.0);
-    //  motor4.move(0.0, 0.0);
+    String data1 = joystick_data.substring(0, 4);
+    String data2 = joystick_data.substring(5, 9);
+    String data3 = joystick_data.substring(10, 14);
+    //  String data4 = joystick_data.substring(15, 19);
 
-    //  motor1.move(90, 0.0);
-    //  motor2.move(90, 0.0);
-    //  motor3.move(90, 0.0);
-    //  motor4.move(90, 0.0);
+    int vy = data1.toInt();
+    int vx = data2.toInt();
 
-    //// ***************************** uncomment here for normal operation  ***************************** 
-    //  joystick_data = Serial.readStringUntil('\n');
-    //  
-    ////  Serial.print("You sent me");
-    //  Serial.println(joystick_data);
-    //  
-    //  String data1 = joystick_data.substring(0, 4);
-    //  String data2 = joystick_data.substring(5, 9);
-    //  String data3 = joystick_data.substring(10, 14);
-    ////  String data4 = joystick_data.substring(15, 19);
-    //  
-    //  int vy = data1.toInt();
-    //  int vx = data2.toInt();
-    //  
-    //  int turn = data3.toInt();
-    //
-    //  motor1.move(vy-vx, 0.0);
-    //  motor2.move(vy+vx, 0.0);
-    //  motor3.move(vy-vx, 0.0);
-    //  motor4.move(vy+vx, 0.0);
-    //  
-    //  if (turn != 0) {
-    //  
+    int turn = data3.toInt();
+
+    m1_speed = vy - vx;
+    m2_speed = vy + vx;
+    m3_speed = vy - vx;
+    m4_speed = vy + vx;
+
+    //motor1.move(vy - vx, 0.0);
+    //motor2.move(vy + vx, 0.0);
+    //motor3.move(vy - vx, 0.0);
+    //motor4.move(vy + vx, 0.0);
+
+    //if (turn != 0) {
+
     //    rotate(turn);
-    //  }
-    //
-    //// ***************************** uncomment here for normal operation  ***************************** 
+    //}
+
+    // ***************************** uncomment here for normal operation  ***************************** 
+
 
 }
