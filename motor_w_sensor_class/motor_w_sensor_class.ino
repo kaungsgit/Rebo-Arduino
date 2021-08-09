@@ -1,16 +1,11 @@
 # include "TimerOne.h"
 
 
-const byte MOTOR1 = 2;  // Motor 1 Interrupt Pin - INT 0
-const byte MOTOR2 = 3;  // Motor 2 Interrupt Pin - INT 1
+const byte MOTOR1 = 2;  // Motor 1 Interrupt Pin
+const byte MOTOR2 = 3;  // Motor 2 Interrupt Pin
 
-const byte MOTOR3 = 18;  // Motor 1 Interrupt Pin - INT 0
-const byte MOTOR4 = 19;  // Motor 2 Interrupt Pin - INT 1
-
-
-//// Integers for pulse counters
-//unsigned int counter1 = 0;
-//unsigned int counter2 = 0;
+const byte MOTOR3 = 18;  // Motor 3 Interrupt Pin
+const byte MOTOR4 = 19;  // Motor 4 Interrupt Pin
 
 // Float for number of slots in encoder disk
 float diskslots = 20.0;  // Change to match value of encoder disk
@@ -42,10 +37,6 @@ volatile float motor4_drive_signal;
 
 float pid_loop_dur_us = 0.01e6;
 
-long curr_t = 0;
-long prev_t1 = 0;
-float delta_t = 0.0;
-
 int m1_speed;
 int m2_speed;
 int m3_speed;
@@ -56,9 +47,13 @@ volatile int mapped_m2_speed;
 volatile int mapped_m3_speed;
 volatile int mapped_m4_speed;
 
-//float m1_rpm_tag[] = { 0, 0, 1, 0, 0, 0, 1, 0 };
-//int n2 = 0;
-//bool everything_equal = true;
+const byte numChars = 32;
+char receivedChars[numChars];   // an array to store the received data
+boolean newData = false;
+
+const unsigned int MAX_MESSAGE_LENGTH = 20;
+String global_message;
+int global_int;
 
 
 class Motor {
@@ -295,7 +290,7 @@ public:
 
     uint8_t int_pin;
     void (*ISR_func)();
-    
+
     long curr_t, prev_t = 0;
     float delta_t = 0.0;
     float diskslots;
@@ -306,12 +301,12 @@ public:
     bool curr_speed_zero = true;
 
     float curr_speed = 0.0;
-    
 
     SpeedSensor(uint8_t int_pin, void ISR_func(), float diskslots, float* speed_history, uint8_t speed_history_length) {
         this->int_pin = int_pin;
         this->ISR_func = ISR_func;
-        attachInterrupt(digitalPinToInterrupt(this->int_pin), this->ISR_func, RISING);
+        this->attach_int();
+
         this->diskslots = diskslots;
 
         this->speed_history = speed_history;
@@ -319,11 +314,11 @@ public:
 
     }
 
-    void detach_int(){
+    void detach_int() {
         detachInterrupt(digitalPinToInterrupt(this->int_pin));
     }
 
-    void attach_int(){
+    void attach_int() {
         attachInterrupt(digitalPinToInterrupt(this->int_pin), this->ISR_func, RISING);
     }
 
@@ -421,19 +416,8 @@ SpeedSensor sensor3(18, ISR_count3, 20.0, s3_spd_his, 8);
 SpeedSensor sensor4(19, ISR_count4, 20.0, s4_spd_his, 8);
 
 // Interrupt Service Routines
-// Motor 1 pulse count ISR
 void ISR_count1()
 {
-    //    counter1++;  // increment Motor 1 counter value
-
-//    // time difference
-//    curr_t = micros();
-//    delta_t = ((float)(curr_t - prev_t1)) / (1.0e3);
-//    prev_t1 = curr_t;
-//    m1_rpm = (60.0 / (delta_t * diskslots)) * 1.0e3;
-
-//        m1_rpm = fir2.FIR_filter_update_c(m1_rpm);
-
     m1_rpm = sensor1.calculate_speed();
 }
 
@@ -443,13 +427,13 @@ void ISR_count2()
     m2_rpm = sensor2.calculate_speed();
 }
 
-// Motor 2 pulse count ISR
+// Motor 3 pulse count ISR
 void ISR_count3()
 {
     m3_rpm = sensor3.calculate_speed();
 }
 
-// Motor 2 pulse count ISR
+// Motor 4 pulse count ISR
 void ISR_count4()
 {
     m4_rpm = sensor4.calculate_speed();
@@ -459,22 +443,15 @@ void ISR_count4()
 // TimerOne ISR
 void ISR_timerone()
 {
-//    Timer1.detachInterrupt();  // Stop the timer
-
+    //    Timer1.detachInterrupt();  // Stop the timer
+    // this ISR is doing a lot of stuff! Need to move this to main loop
     m1_rpm_filtered = fir1.FIR_filter_update_c(m1_rpm);
     m2_rpm_filtered = fir2.FIR_filter_update_c(m2_rpm);
     m3_rpm_filtered = fir3.FIR_filter_update_c(m3_rpm);
     m4_rpm_filtered = fir4.FIR_filter_update_c(m4_rpm);
 
-
-
-        //    m1_rpm_filtered = sensor1.curr_speed;
-        //    m1_rpm_filtered = fir2.FIR_filter_update_c(sensor1.curr_speed);   // sensor1.curr_speed becomes 0 every 4 or so samples, seems that accessing the object's attribute doesn't work too well. Temp solution is to use global var
-
-    //    m1_rpm = sensor1.detect_zero_speed();
-    //    m2_rpm = sensor2.detect_zero_speed();
-    //    m3_rpm = sensor3.detect_zero_speed();
-    //    m4_rpm = sensor4.detect_zero_speed();
+    //    m1_rpm_filtered = sensor1.curr_speed;
+    //    m1_rpm_filtered = fir2.FIR_filter_update_c(sensor1.curr_speed);   // sensor1.curr_speed becomes 0 every 4 or so samples, seems that accessing the object's attribute doesn't work too well. Temp solution is to use global var
 
     if (sensor1.detect_zero_speed()) {
         m1_rpm = 0.0;
@@ -489,37 +466,15 @@ void ISR_timerone()
         m4_rpm = 0.0;
     }
 
-    //    sensor1.detect_zero_speed();
-    //    sensor2.detect_zero_speed();
-    //    sensor3.detect_zero_speed();
-    //    sensor4.detect_zero_speed();
-
-
-        //    // set speed to 0 when wheel is no longer rotating
-        //    if (n2 > (((sizeof(m1_rpm_tag)) / 4) - 1)) {
-        //        n2 = 0;
-        //    }
-        //    m1_rpm_tag[n2] = m1_rpm;
-        //    n2++;
-        //    everything_equal = true;
-        //    for (unsigned i = 0; i < (sizeof(m1_rpm_tag) / 4) - 1; i++) {
-        //        if (m1_rpm_tag[i] != m1_rpm_tag[0]) {
-        //            everything_equal = false;
-        //        }
-        //    }
-        //    if (everything_equal) m1_rpm = 0;
-
-        // time difference
+    // time difference
     long curr_t = micros();
     float delta_t = ((float)(curr_t - prev_t)) / (1.0e6);
     prev_t = curr_t;
 
-
-
-    mapped_m1_speed = map(abs(m1_speed), 0, 100, 0, 200);
-    mapped_m2_speed = map(abs(m2_speed), 0, 100, 0, 200);
-    mapped_m3_speed = map(abs(m3_speed), 0, 100, 0, 200);
-    mapped_m4_speed = map(abs(m4_speed), 0, 100, 0, 200);
+    mapped_m1_speed = map(constrain(abs(m1_speed), 0, 100), 0, 100, 0, 300);
+    mapped_m2_speed = map(constrain(abs(m2_speed), 0, 100), 0, 100, 0, 300);
+    mapped_m3_speed = map(constrain(abs(m3_speed), 0, 100), 0, 100, 0, 300);
+    mapped_m4_speed = map(constrain(abs(m4_speed), 0, 100), 0, 100, 0, 300);
 
     motor1_drive_signal = pid1.compute(m1_rpm_filtered, mapped_m1_speed, delta_t);
     motor2_drive_signal = pid2.compute(m2_rpm_filtered, mapped_m2_speed, delta_t);
@@ -536,22 +491,86 @@ void ISR_timerone()
     if (m3_speed < 0) motor3_drive_signal = -1.0 * motor3_drive_signal;
     if (m4_speed < 0) motor4_drive_signal = -1.0 * motor4_drive_signal;
 
-//    motor1.move(motor1_drive_signal, 0.0);
-//    motor2.move(motor2_drive_signal, 0.0);
-//    motor3.move(motor3_drive_signal, 0.0);
-//    motor4.move(motor4_drive_signal, 0.0);
+    //    motor1.move(motor1_drive_signal, 0.0);
+    //    motor2.move(motor2_drive_signal, 0.0);
+    //    motor3.move(motor3_drive_signal, 0.0);
+    //    motor4.move(motor4_drive_signal, 0.0);
 
-//    motor1_drive_signal = pid1.compute(m1_rpm_filtered, target_rpm, delta_t);
-//    motor2_drive_signal = pid2.compute(m2_rpm_filtered, target_rpm, delta_t);
-//    motor3_drive_signal = pid3.compute(m3_rpm_filtered, target_rpm, delta_t);
-//    motor4_drive_signal = pid4.compute(m4_rpm_filtered, target_rpm, delta_t);
-//
-//    motor1.forward(motor1_drive_signal, 0.0);
-//    motor2.forward(motor2_drive_signal, 0.0);
-//    motor3.forward(motor3_drive_signal, 0.0);
-//    motor4.forward(motor4_drive_signal, 0.0);
+    //    motor1_drive_signal = pid1.compute(m1_rpm_filtered, target_rpm, delta_t);
+    //    motor2_drive_signal = pid2.compute(m2_rpm_filtered, target_rpm, delta_t);
+    //    motor3_drive_signal = pid3.compute(m3_rpm_filtered, target_rpm, delta_t);
+    //    motor4_drive_signal = pid4.compute(m4_rpm_filtered, target_rpm, delta_t);
+    //
+    //    motor1.forward(motor1_drive_signal, 0.0);
+    //    motor2.forward(motor2_drive_signal, 0.0);
+    //    motor3.forward(motor3_drive_signal, 0.0);
+    //    motor4.forward(motor4_drive_signal, 0.0);
 
-//    Timer1.attachInterrupt(ISR_timerone);  // Enable the timer
+    //    Timer1.attachInterrupt(ISR_timerone);  // Enable the timer
+}
+
+
+void recvWithEndMarker() {
+    static byte ndx = 0;
+    char endMarker = '\n';
+    char rc;
+
+    while (Serial.available() > 0 && newData == false) {
+        rc = Serial.read();
+
+        if (rc != endMarker) {
+            receivedChars[ndx] = rc;
+            ndx++;
+            if (ndx >= numChars) {
+                ndx = numChars - 1;
+            }
+        }
+        else {
+            receivedChars[ndx] = '\0'; // terminate the string
+            ndx = 0;
+            newData = true;
+        }
+    }
+}
+
+void recvWithStartEndMarkers() {
+    static boolean recvInProgress = false;
+    static byte ndx = 0;
+    char startMarker = '<';
+    char endMarker = '>';
+    char rc;
+ 
+    while (Serial.available() > 0 && newData == false) {
+        rc = Serial.read();
+
+        if (recvInProgress == true) {
+            if (rc != endMarker) {
+                receivedChars[ndx] = rc;
+                ndx++;
+                if (ndx >= numChars) {
+                    ndx = numChars - 1;
+                }
+            }
+            else {
+                receivedChars[ndx] = '\0'; // terminate the string
+                recvInProgress = false;
+                ndx = 0;
+                newData = true;
+            }
+        }
+
+        else if (rc == startMarker) {
+            recvInProgress = true;
+        }
+    }
+}
+
+void showNewData() {
+    if (newData == true) {
+        //Serial.print("This just in ... ");
+        Serial.println(receivedChars);
+        newData = false;
+    }
 }
 
 void setup() {
@@ -563,163 +582,105 @@ void setup() {
     //    }
 
     Timer1.initialize(pid_loop_dur_us); // set timer for 1sec
-//    attachInterrupt(digitalPinToInterrupt(MOTOR1), ISR_count1, RISING);  // Increase counter 1 when speed sensor pin goes High
-    //attachInterrupt(digitalPinToInterrupt(MOTOR2), ISR_count2, RISING);  // Increase counter 2 when speed sensor pin goes High
 
     Timer1.attachInterrupt(ISR_timerone); // Enable the timer
 
-  //  Serial.println("Target MotorDrive Current");
-//    Serial.println("SenseVal,SetPoint,Error,Output,deltaT,m1_rpm");
+    //Serial.println("Target MotorDrive Current");
+    //Serial.println("SenseVal,SetPoint,Error,Output,deltaT,m1_rpm");
     //Serial.println("SenseVal,SetPoint,Error,Output,deltaT,intError,m1_rpm");
-    //    Serial.println("SenseVal,SetPoint,deltaT,m1_rpm");
+    //Serial.println("SenseVal,SetPoint,deltaT,m1_rpm");
+    //Serial.println("m1,m2,m3,m4");
+}
 
-//    Serial.println("m1,m2,m3,m4");
+
+void read_data_from_RPI() {
+    while (Serial.available()){
+    static char message[MAX_MESSAGE_LENGTH];
+    static unsigned int message_pos = 0;
+
+    char inByte = Serial.read();
+
+    if (inByte != '\n') {
+      // do something
+      message[message_pos] = inByte;
+      message_pos++;
+    }
+    else {
+      // do something else
+      message[message_pos] = '\0';
+      Serial.println(message);
+      message_pos = 0;
+//      global_message = message;
+      joystick_data = message;
+//      Serial.println(global_message);
+    }
+  }
 }
 
 void loop() {
 
-//    while (Serial.available()) {
-//        target_input = Serial.readStringUntil('\n').toInt();
-//    }
+    //    while (Serial.available()) {
+    //        target_input = Serial.readStringUntil('\n').toInt();
+    //    }
 
-//    Serial.print(m1_rpm_filtered);
-////    Serial.print(',');
-////    Serial.print(pid1.error);
-////    Serial.println();
-//    Serial.print(',');
-//    Serial.print(m2_rpm_filtered);
-//    Serial.print(',');
-//    Serial.print(m3_rpm_filtered);
-//    Serial.print(',');
-//    Serial.print(m4_rpm_filtered);
-//
-//    Serial.print(',');
-//    Serial.print(pid1.output);
-//    Serial.print(',');
-//    Serial.print(pid2.output);
-//    Serial.print(',');
-//    Serial.print(pid3.output);
-//    Serial.print(',');
-//    Serial.print(pid4.output);
-//    Serial.println();
+    //    Serial.print(m1_rpm_filtered);
+    ////    Serial.print(',');
+    ////    Serial.print(pid1.error);
+    ////    Serial.println();
+    //    Serial.print(',');
+    //    Serial.print(m2_rpm_filtered);
+    //    Serial.print(',');
+    //    Serial.print(m3_rpm_filtered);
+    //    Serial.print(',');
+    //    Serial.print(m4_rpm_filtered);
+    //
+    //    Serial.print(',');
+    //    Serial.print(pid1.output);
+    //    Serial.print(',');
+    //    Serial.print(pid2.output);
+    //    Serial.print(',');
+    //    Serial.print(pid3.output);
+    //    Serial.print(',');
+    //    Serial.print(pid4.output);
+    //    Serial.println();
 
-    //        motor1.forward(target_rpm, 0.0);
-
-        // ***************************** uncomment here for normal operation  ***************************** 
-
-          sensor1.detach_int();
-          sensor2.detach_int();
-          sensor3.detach_int();
-          sensor4.detach_int();
-          Timer1.detachInterrupt();  // Stop the timer
-          
-          joystick_data = Serial.readStringUntil('\n');
-          
-        //  Serial.print("You sent me");
-          Serial.println(joystick_data);
-
-          sensor1.attach_int();
-          sensor2.attach_int();
-          sensor3.attach_int();
-          sensor4.attach_int();
-          Timer1.attachInterrupt(ISR_timerone);  // Enable the timer
-          
-          String data1 = joystick_data.substring(0, 4);
-          String data2 = joystick_data.substring(5, 9);
-          String data3 = joystick_data.substring(10, 14);
-        //  String data4 = joystick_data.substring(15, 19);
-          
-          int vy = data1.toInt();
-          int vx = data2.toInt();
-          
-          int turn = data3.toInt();
-        
-          motor1.move(vy-vx, 0.0);
-          motor2.move(vy+vx, 0.0);
-          motor3.move(vy-vx, 0.0);
-          motor4.move(vy+vx, 0.0);
-          
-          if (turn != 0) {
-          
-            rotate(turn);
-          }
-        
-        // ***************************** uncomment here for normal operation  ***************************** 
-
-//    //***************************** uncomment here for normal operation*****************************
+//    // ***************************** uncomment here for normal operation  ***************************** 
 //
 //    sensor1.detach_int();
 //    sensor2.detach_int();
 //    sensor3.detach_int();
 //    sensor4.detach_int();
 //    Timer1.detachInterrupt();  // Stop the timer
-//    
+//
 //    joystick_data = Serial.readStringUntil('\n');
-//    
 //    //  Serial.print("You sent me");
 //    Serial.println(joystick_data);
+//
+////    recvWithEndMarker();
+////    showNewData();
+//
+////    joystick_data = receivedChars;
 //
 //    sensor1.attach_int();
 //    sensor2.attach_int();
 //    sensor3.attach_int();
 //    sensor4.attach_int();
 //    Timer1.attachInterrupt(ISR_timerone);  // Enable the timer
-//    
-//    
+//
 //    String data1 = joystick_data.substring(0, 4);
 //    String data2 = joystick_data.substring(5, 9);
 //    String data3 = joystick_data.substring(10, 14);
-//    String data4 = joystick_data.substring(15, 19);
+//    //  String data4 = joystick_data.substring(15, 19);
 //
 //    int vy = data1.toInt();
 //    int vx = data2.toInt();
-//  
+//
 //    int turn = data3.toInt();
 //
-//    int all_forward = data4.toInt();
-//
-//    noInterrupts();
-//
-////    Serial.print(mapped_m1_speed);
-////    Serial.print(',');
-////    Serial.print(mapped_m2_speed);
-////    Serial.print(',');
-////    Serial.print(mapped_m3_speed);
-////    Serial.print(',');
-////    Serial.print(mapped_m4_speed);
-////    Serial.println();
-//
-//    
-//    m1_speed = vy - vx;
-//    m2_speed = vy + vx;
-//    m3_speed = vy - vx;
-//    m4_speed = vy + vx;
-//
-////    m1_speed = target_input;
-////    m2_speed = target_input;
-////    m3_speed = target_input;
-////    m4_speed = target_input;
-//    
-//    if (all_forward != 0) {
-//      m1_speed = all_forward;
-//      m2_speed = all_forward;
-//      m3_speed = all_forward;
-//      m4_speed = all_forward;
-//    }
-//    
-//    motor1.move(motor1_drive_signal, 0.0);
-//    motor2.move(motor2_drive_signal, 0.0);
-//    motor3.move(motor3_drive_signal, 0.0);
-//    motor4.move(motor4_drive_signal, 0.0);
-//
-////    motor1.move(target_input, 0.0);
-////    motor2.move(target_input, 0.0);
-////    motor3.move(target_input, 0.0);
-////    motor4.move(target_input, 0.0);
-//
-//    interrupts();
-//
-//
+//    motor1.move(vy - vx, 0.0);
+//    motor2.move(vy + vx, 0.0);
+//    motor3.move(vy - vx, 0.0);
+//    motor4.move(vy + vx, 0.0);
 //
 //    if (turn != 0) {
 //
@@ -727,6 +688,98 @@ void loop() {
 //    }
 //
 //    // ***************************** uncomment here for normal operation  ***************************** 
+
+    //***************************** uncomment here for normal operation*****************************
+
+    sensor1.detach_int();
+    sensor2.detach_int();
+    sensor3.detach_int();
+    sensor4.detach_int();
+    Timer1.detachInterrupt();  // Stop the timer
+    
+    joystick_data = Serial.readStringUntil('\n');
+    //  Serial.print("You sent me");
+    Serial.println(joystick_data);
+
+//    recvWithStartEndMarkers();
+//    showNewData();
+//    joystick_data = receivedChars;
+
+
+//    recvWithEndMarker();
+//    showNewData();
+//    joystick_data = receivedChars;
+
+//    read_data_from_RPI();
+    
+    sensor1.attach_int();
+    sensor2.attach_int();
+    sensor3.attach_int();
+    sensor4.attach_int();
+    Timer1.attachInterrupt(ISR_timerone);  // Enable the timer
+    
+    
+    String data1 = joystick_data.substring(0, 4);
+    String data2 = joystick_data.substring(5, 9);
+    String data3 = joystick_data.substring(10, 14);
+    String data4 = joystick_data.substring(15, 19);
+
+    int vy = data1.toInt();
+    int vx = data2.toInt();
+  
+    int turn = data3.toInt();
+
+    int all_forward = data4.toInt();
+
+    noInterrupts();
+
+//    Serial.print(mapped_m1_speed);
+//    Serial.print(',');
+//    Serial.print(mapped_m2_speed);
+//    Serial.print(',');
+//    Serial.print(mapped_m3_speed);
+//    Serial.print(',');
+//    Serial.print(mapped_m4_speed);
+//    Serial.println();
+
+    
+      m1_speed = vy - vx;
+      m2_speed = vy + vx;
+      m3_speed = vy - vx;
+      m4_speed = vy + vx;
+
+//    m1_speed = target_input;
+//    m2_speed = target_input;
+//    m3_speed = target_input;
+//    m4_speed = target_input;
+    
+    if (all_forward != 0) {
+      m1_speed = all_forward;
+      m2_speed = all_forward;
+      m3_speed = all_forward;
+      m4_speed = all_forward;
+    }
+    
+    motor1.move(motor1_drive_signal, 0.0);
+    motor2.move(motor2_drive_signal, 0.0);
+    motor3.move(motor3_drive_signal, 0.0);
+    motor4.move(motor4_drive_signal, 0.0);
+
+//    motor1.move(target_input, 0.0);
+//    motor2.move(target_input, 0.0);
+//    motor3.move(target_input, 0.0);
+//    motor4.move(target_input, 0.0);
+
+    interrupts();
+
+
+
+    if (turn != 0) {
+
+        rotate(turn);
+    }
+
+    // ***************************** uncomment here for normal operation  ***************************** 
 
 
 }
