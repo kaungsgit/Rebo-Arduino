@@ -1,5 +1,6 @@
 # include "TimerOne.h"
 # include <util/atomic.h>
+# include "state.h"
 
 const byte MOTOR1 = 2;  // Motor 1 Interrupt Pin
 const byte MOTOR2 = 3;  // Motor 2 Interrupt Pin
@@ -16,7 +17,9 @@ long prev_t = 0;
 
 volatile int target_rpm = 200;
 
-volatile int target_input = 40;
+volatile int target_input = 0;
+
+char target_cmd[10];
 
 volatile float m1_rpm;
 volatile float m1_rpm_filtered;
@@ -42,6 +45,8 @@ int m2_speed;
 int m3_speed;
 int m4_speed;
 
+int motor_speeds[4] = {0, 0, 0, 0};
+
 volatile int mapped_m1_speed;
 volatile int mapped_m2_speed;
 volatile int mapped_m3_speed;
@@ -55,10 +60,56 @@ const unsigned int MAX_MESSAGE_LENGTH = 20;
 String global_message;
 int global_int;
 
-// test case flags
+// ************************** valid operation modes ************************** 
 boolean bypass_pid_loop = false;
 boolean bypass_sensor_filter = false;
-boolean drive_via_manual_serial = false; // false = drive from RPI
+//0 -> drive_via_manual_serial
+//1 -> drive from RPI
+//2 -> drive_via_manual_serial_cmd, for testing with voice cmds via serial
+uint8_t drive_mode = 2;
+
+//extern char stopped_state_name;
+extern Stopped stopped_state;
+
+//extern char active_state_name[] = "active_state";
+extern Active active_state;
+
+//extern char moving_forward_state_name[] = "moving_forward_state";
+extern MovingForward moving_forward_state;
+
+class Robot {
+  public:
+    State* state;
+    Robot(void);
+    void on_event(char* event);
+};
+
+
+void print_motor_speeds() {
+  Serial.print(motor_speeds[0]);
+  Serial.print(",");
+  Serial.print(motor_speeds[1]);
+  Serial.print(",");
+  Serial.print(motor_speeds[2]);
+  Serial.print(",");
+  Serial.print(motor_speeds[3]);
+  Serial.println();
+}
+
+Robot::Robot() {
+  this->state = &stopped_state;
+  this->state->perform_action(motor_speeds);
+  //  print_motor_speeds();
+}
+void Robot::on_event(char* event) {
+  State* prev_state = state;
+  this->state = this->state->on_event(event);
+  State* curr_state = state;
+  if (prev_state != curr_state) {
+    state->perform_action(motor_speeds);
+    //    print_motor_speeds();
+  }
+}
 
 class Motor {
   private:
@@ -603,14 +654,6 @@ void showNewData() {
   }
 }
 
-void setup() {
-  Serial.begin(115200);
-  Timer1.initialize(pid_loop_dur_us); // set timer for 1sec
-  if (drive_via_manual_serial) {
-    Serial.println("m1,m2,m3,m4,pid1out,pid2out,pid3out,pid4out");
-  }
-}
-
 
 void read_data_from_RPI() {
   while (Serial.available()) {
@@ -658,9 +701,41 @@ void print_pid_outputs() {
   Serial.print(',');
 }
 
+char NAME[] = "zero";
+char GO[] = "go";
+char STOP[] = "stop";
+char BACK[] = "back";
+
+void setup() {
+  Serial.begin(115200);
+  Timer1.initialize(pid_loop_dur_us); // set timer for 1sec
+  if (drive_mode == 0 || drive_mode == 2) {
+    Serial.println("m1,m2,m3,m4,pid1out,pid2out,pid3out,pid4out");
+  }
+
+
+}
+
+
+
+Robot my_robot;
+
+#define BUF_SIZE 10
+
+char buffer_local[BUF_SIZE];
+
 void loop() {
+
+  //  Serial.println(my_robot.state->name);
+  //  my_robot.on_event(NAME);
+  //  Serial.println(my_robot.state->name);
+  //  my_robot.on_event(GO);
+  //  Serial.println(my_robot.state->name);
+  //  my_robot.on_event(STOP);
+  //  Serial.println(my_robot.state->name);
+
   int turn;
-  if (drive_via_manual_serial) {
+  if (drive_mode == 0) {
     while (Serial.available()) {
       target_input = Serial.readStringUntil('\n').toInt();
     }
@@ -674,7 +749,25 @@ void loop() {
     print_pid_outputs();
     Serial.println();
   }
-  else { // drive via RPI
+
+  if (drive_mode == 2) {
+    while (Serial.available()) {
+      Serial.readStringUntil('\n').toCharArray(buffer_local, BUF_SIZE);
+    }
+
+    my_robot.on_event(buffer_local);
+
+    m1_speed = motor_speeds[0];
+    m2_speed = motor_speeds[1];
+    m3_speed = motor_speeds[2];
+    m4_speed = motor_speeds[3];
+
+    print_motor_rpm();
+    print_pid_outputs();
+    Serial.println();
+  }
+
+  if (drive_mode == 3) { // drive via RPI
 
     read_data_from_RPI();
 
