@@ -61,10 +61,15 @@ int global_int;
 char voice_cmd_buffer[BUF_SIZE_voice_cmd];
 
 // ************************** valid voice commands **************************
-char NAME[] = "zero";
-char GO[] = "up";
-char STOP[] = "stop";
-char BACK[] = "down";
+char NAME[] = "ZERO";
+char GO[] = "UP";
+char STOP[] = "STOP";
+char BACK[] = "DOWN";
+
+//char NAME[] = "ZERO------";
+//char GO[] =   "UP--------";
+//char STOP[] = "STOP------";
+//char BACK[] = "DOWN------";
 
 // ************************** valid operation modes **************************
 boolean bypass_pid_loop = false;
@@ -80,10 +85,10 @@ extern Stopped stopped_state;
 //extern MovingForward moving_forward_state;
 
 class Robot {
-public:
-  State *state;
-  Robot(void);
-  void on_event(char *event);
+  public:
+    State *state;
+    Robot(void);
+    void on_event(char *event);
 };
 
 void print_motor_speeds() {
@@ -113,53 +118,53 @@ void Robot::on_event(char *event) {
 }
 
 class Motor {
-private:
-  byte ena;
-  byte in1;
-  byte in2;
-public:
-  Motor(byte ena, byte in1, byte in2) {
+  private:
+    byte ena;
+    byte in1;
+    byte in2;
+  public:
+    Motor(byte ena, byte in1, byte in2) {
 
-    this->ena = ena;
-    this->in1 = in1;
-    this->in2 = in2;
+      this->ena = ena;
+      this->in1 = in1;
+      this->in2 = in2;
 
-    pinMode(this->ena, OUTPUT);
-    pinMode(this->in1, OUTPUT);
-    pinMode(this->in2, OUTPUT);
-  }
+      pinMode(this->ena, OUTPUT);
+      pinMode(this->in1, OUTPUT);
+      pinMode(this->in2, OUTPUT);
+    }
 
-  void move(float speed_pct, float time_dur) {
-    //      speed_pct = speed_pct*100;
-    speed_pct = speed_pct * 2.55;
-    if (speed_pct > 255)
-      speed_pct = 255;
-    else if (speed_pct < -255)
-      speed_pct = -255;
+    void move(float speed_pct, float time_dur) {
+      //      speed_pct = speed_pct*100;
+      speed_pct = speed_pct * 2.55;
+      if (speed_pct > 255)
+        speed_pct = 255;
+      else if (speed_pct < -255)
+        speed_pct = -255;
 
-    if (speed_pct > 0) {
+      if (speed_pct > 0) {
+        digitalWrite(this->in1, LOW);
+        digitalWrite(this->in2, HIGH);
+        analogWrite(this->ena, abs(speed_pct));
+      } else if (speed_pct < 0) {
+        digitalWrite(this->in1, HIGH);
+        digitalWrite(this->in2, LOW);
+        analogWrite(this->ena, abs(speed_pct));
+      } else {
+        analogWrite(this->ena, 0);
+      }
+      delay(time_dur);
+    }
+
+    void forward(float speed_value, float time_dur) {
       digitalWrite(this->in1, LOW);
       digitalWrite(this->in2, HIGH);
-      analogWrite(this->ena, abs(speed_pct));
-    } else if (speed_pct < 0) {
-      digitalWrite(this->in1, HIGH);
-      digitalWrite(this->in2, LOW);
-      analogWrite(this->ena, abs(speed_pct));
-    } else {
+      analogWrite(this->ena, abs(speed_value));
+    }
+
+    void stop() {
       analogWrite(this->ena, 0);
     }
-    delay(time_dur);
-  }
-
-  void forward(float speed_value, float time_dur) {
-    digitalWrite(this->in1, LOW);
-    digitalWrite(this->in2, HIGH);
-    analogWrite(this->ena, abs(speed_value));
-  }
-
-  void stop() {
-    analogWrite(this->ena, 0);
-  }
 };
 
 // **************************************** Motor pin assigments ****************************************
@@ -191,244 +196,245 @@ void rotate(float turn_speed) {
 
 class PID {
 
-public:
-  float kp;
-  float ki;
-  float kd;
-  float setpoint;
-  float error;
-  float integral_error;
-  float derivative_error;
-  float prev_error;
-  float output;
+  public:
+    float kp;
+    float ki;
+    float kd;
+    float setpoint;
+    float error;
+    float integral_error;
+    float derivative_error;
+    float prev_error;
+    float output;
 
-  float *int_err_history;
-  uint8_t int_err_history_length;
-  uint8_t int_err_history_index;
-  bool curr_int_err_zero = true;
+    float *int_err_history;
+    uint8_t int_err_history_length;
+    uint8_t int_err_history_index;
+    bool curr_int_err_zero = true;
 
-public:
-  PID(float kp, float ki, float kd, float *int_err_history,
-      uint8_t int_err_history_length) {
+  public:
+    PID(float kp, float ki, float kd, float *int_err_history,
+        uint8_t int_err_history_length) {
 
-    this->kp = kp;
-    this->ki = ki;
-    this->kd = kd;
+      this->kp = kp;
+      this->ki = ki;
+      this->kd = kd;
 
-    this->error = 0;
-    this->integral_error = 0;
-    this->derivative_error = 0;
-    this->prev_error = 0;
-    this->output = 0;
+      this->error = 0;
+      this->integral_error = 0;
+      this->derivative_error = 0;
+      this->prev_error = 0;
+      this->output = 0;
 
-    this->int_err_history = int_err_history;
-    this->int_err_history_length = int_err_history_length;
+      this->int_err_history = int_err_history;
+      this->int_err_history_length = int_err_history_length;
 
-  }
-
-  float compute(float sensed_val, float target, float delta_t) {
-    this->setpoint = target;
-    this->error = this->setpoint - sensed_val;
-    this->integral_error += this->error * delta_t;
-    this->derivative_error = (this->error - this->prev_error) / delta_t;
-    this->prev_error = this->error;
-    this->output = this->kp * this->error + this->ki * this->integral_error
-        + this->kd * this->derivative_error;
-
-    if (this->output > 255.0)
-      this->output = 255.0;
-    else if (this->output < 0.0)
-      this->output = 0.0;
-
-    if (this->integral_error > 170.0)
-      this->integral_error = 170.0;
-    else if (this->integral_error < 0)
-      this->integral_error = 0.0;
-    else if (this->detect_zero_int_error())
-      this->integral_error = 0.0;
-    //Serial.print(sensed_val);
-    //Serial.print(',');
-
-    //Serial.print(this->setpoint);
-    //Serial.print(',');
-
-    //Serial.print(this->error);
-    //Serial.print(',');
-    ////
-    //Serial.print(this->output);
-    //Serial.print(',');
-
-    //Serial.print(delta_t);
-    //Serial.print(',');
-
-    //Serial.print(this->integral_error);
-    //Serial.print(',');
-
-    //        Serial.print(this->derivative_error);
-    //        Serial.print(',');
-
-    //        Serial.println(m1_rpm);
-
-    return this->output;
-  }
-
-  bool detect_zero_int_error() {
-    // ISR timerone setting int_err to 0 when wheel is stopped method
-    this->curr_int_err_zero = true;
-    // set int_err to 0 when constant int err is observed
-    if (this->int_err_history_index > (this->int_err_history_length - 1)) {
-      this->int_err_history_index = 0;
     }
 
-    this->int_err_history[this->int_err_history_index] =
-        this->integral_error;
-    this->int_err_history_index++;
+    float compute(float sensed_val, float target, float delta_t) {
+      this->setpoint = target;
+      this->error = this->setpoint - sensed_val;
+      this->integral_error += this->error * delta_t;
+      this->derivative_error = (this->error - this->prev_error) / delta_t;
+      this->prev_error = this->error;
+      this->output = this->kp * this->error + this->ki * this->integral_error
+                     + this->kd * this->derivative_error;
 
-    for (unsigned i = 0; i < this->int_err_history_length - 1; i++) {
-      if (this->int_err_history[i] != this->int_err_history[0]) {
-        this->curr_int_err_zero = false;
+      if (this->output > 255.0)
+        this->output = 255.0;
+      else if (this->output < 0.0)
+        this->output = 0.0;
+
+      if (this->integral_error > 170.0)
+        this->integral_error = 170.0;
+      else if (this->integral_error < 0)
+        this->integral_error = 0.0;
+      else if (this->detect_zero_int_error())
+        this->integral_error = 0.0;
+      //Serial.print(sensed_val);
+      //Serial.print(',');
+
+      //Serial.print(this->setpoint);
+      //Serial.print(',');
+
+      //Serial.print(this->error);
+      //Serial.print(',');
+      ////
+      //Serial.print(this->output);
+      //Serial.print(',');
+
+      //Serial.print(delta_t);
+      //Serial.print(',');
+
+      //Serial.print(this->integral_error);
+      //Serial.print(',');
+
+      //        Serial.print(this->derivative_error);
+      //        Serial.print(',');
+
+      //        Serial.println(m1_rpm);
+
+      return this->output;
+    }
+
+    bool detect_zero_int_error() {
+      // ISR timerone setting int_err to 0 when wheel is stopped method
+      this->curr_int_err_zero = true;
+      // set int_err to 0 when constant int err is observed
+      if (this->int_err_history_index > (this->int_err_history_length - 1)) {
+        this->int_err_history_index = 0;
       }
+
+      this->int_err_history[this->int_err_history_index] =
+        this->integral_error;
+      this->int_err_history_index++;
+
+      for (unsigned i = 0; i < this->int_err_history_length - 1; i++) {
+        if (this->int_err_history[i] != this->int_err_history[0]) {
+          this->curr_int_err_zero = false;
+        }
+      }
+
+      return this->curr_int_err_zero;
+
     }
-
-    return this->curr_int_err_zero;
-
-  }
 };
 
 class FIR {
-  // https://www.youtube.com/watch?v=uNNNj9AZisM&t=1307s&ab_channel=Phil%E2%80%99sLab
-public:
-  uint8_t fir_filter_length;
-  float *fir_impulse_response;
-  float *buf;
-  uint8_t buf_index = 0;
-  float out = 0.0f;
+    // https://www.youtube.com/watch?v=uNNNj9AZisM&t=1307s&ab_channel=Phil%E2%80%99sLab
+  public:
+    uint8_t fir_filter_length;
+    float *fir_impulse_response;
+    float *buf;
+    uint8_t buf_index = 0;
+    float out = 0.0f;
 
-  FIR(uint8_t fir_filter_length, float *fir_impulse_response, float *buf) {
-    this->fir_filter_length = fir_filter_length;
-    this->fir_impulse_response = fir_impulse_response;
-    this->buf = buf;
+    FIR(uint8_t fir_filter_length, float *fir_impulse_response, float *buf) {
+      this->fir_filter_length = fir_filter_length;
+      this->fir_impulse_response = fir_impulse_response;
+      this->buf = buf;
 
-    for (uint8_t n = 0; n < this->fir_filter_length; n++) {
-      this->buf[n] = 0.0f;
-    }
-
-    this->buf_index = 0;
-
-    this->out = 0.0f;
-
-  }
-
-  float FIR_filter_update_c(float inp) {
-    this->buf[this->buf_index] = inp;
-
-    this->buf_index++;
-
-    if (this->buf_index == this->fir_filter_length) {
-      this->buf_index = 0;
-    }
-
-    this->out = 0.0f;
-    uint8_t sum_index = this->buf_index;
-    for (uint8_t n = 0; n < this->fir_filter_length; n++) {
-
-      if (sum_index > 0) {
-        sum_index--;
-      } else {
-        sum_index = this->fir_filter_length - 1;
+      for (uint8_t n = 0; n < this->fir_filter_length; n++) {
+        this->buf[n] = 0.0f;
       }
 
-      this->out += this->fir_impulse_response[n] * this->buf[sum_index];
-    }
-    return this->out;
+      this->buf_index = 0;
 
-  }
+      this->out = 0.0f;
+
+    }
+
+    float FIR_filter_update_c(float inp) {
+      this->buf[this->buf_index] = inp;
+
+      this->buf_index++;
+
+      if (this->buf_index == this->fir_filter_length) {
+        this->buf_index = 0;
+      }
+
+      this->out = 0.0f;
+      uint8_t sum_index = this->buf_index;
+      for (uint8_t n = 0; n < this->fir_filter_length; n++) {
+
+        if (sum_index > 0) {
+          sum_index--;
+        } else {
+          sum_index = this->fir_filter_length - 1;
+        }
+
+        this->out += this->fir_impulse_response[n] * this->buf[sum_index];
+      }
+      return this->out;
+
+    }
 
 };
 
 class SpeedSensor {
-public:
+  public:
 
-  uint8_t int_pin;
-  void (*ISR_func)();
+    uint8_t int_pin;
+    void (*ISR_func)();
 
-  long curr_t, prev_t = 0;
-  float delta_t = 0.0;
-  float diskslots;
+    long curr_t, prev_t = 0;
+    float delta_t = 0.0;
+    float diskslots;
 
-  float *speed_history;
-  uint8_t speed_history_length;
-  uint8_t speed_history_index;
-  bool curr_speed_zero = true;
+    float *speed_history;
+    uint8_t speed_history_length;
+    uint8_t speed_history_index;
+    bool curr_speed_zero = true;
 
-  float curr_speed = 0.0;
+    float curr_speed = 0.0;
 
-  SpeedSensor(uint8_t int_pin, void ISR_func(), float diskslots,
-      float *speed_history, uint8_t speed_history_length) {
-    this->int_pin = int_pin;
-    this->ISR_func = ISR_func;
-    this->attach_int();
+    SpeedSensor(uint8_t int_pin, void ISR_func(), float diskslots,
+                float *speed_history, uint8_t speed_history_length) {
+      this->int_pin = int_pin;
+      this->ISR_func = ISR_func;
+      this->attach_int();
 
-    this->diskslots = diskslots;
+      this->diskslots = diskslots;
 
-    this->speed_history = speed_history;
-    this->speed_history_length = speed_history_length;
+      this->speed_history = speed_history;
+      this->speed_history_length = speed_history_length;
 
-  }
-
-  void detach_int() {
-    detachInterrupt(digitalPinToInterrupt(this->int_pin));
-  }
-
-  void attach_int() {
-    attachInterrupt(digitalPinToInterrupt(this->int_pin), this->ISR_func,
-        RISING);
-  }
-
-  float calculate_speed() {
-    // ISR speed calculation method
-
-    // time difference
-    this->curr_t = micros();
-    this->delta_t = ((float) (this->curr_t - this->prev_t)) / (1.0e3);
-    this->prev_t = this->curr_t;
-
-    //  m1_rpm = (diskslots/delta_t);
-
-    this->curr_speed = (60.0 / (this->delta_t * this->diskslots)) * 1.0e3;
-
-    return this->curr_speed;
-
-  }
-
-  bool detect_zero_speed() {
-    // ISR timerone setting speed to 0 when wheel is stopped method
-    this->curr_speed_zero = true;
-    // set speed to 0 when wheel is no longer rotating
-    if (this->speed_history_index > (this->speed_history_length - 1)) {
-      this->speed_history_index = 0;
     }
 
-    this->speed_history[this->speed_history_index] = this->curr_speed;
-    this->speed_history_index++;
+    void detach_int() {
+      detachInterrupt(digitalPinToInterrupt(this->int_pin));
+    }
 
-    for (unsigned i = 0; i < this->speed_history_length - 1; i++) {
-      if (this->speed_history[i] != this->speed_history[0]) {
-        this->curr_speed_zero = false;
+    void attach_int() {
+      attachInterrupt(digitalPinToInterrupt(this->int_pin), this->ISR_func,
+                      RISING);
+    }
+
+    float calculate_speed() {
+      // ISR speed calculation method
+
+      // time difference
+      this->curr_t = micros();
+      this->delta_t = ((float) (this->curr_t - this->prev_t)) / (1.0e3);
+      this->prev_t = this->curr_t;
+
+      //  m1_rpm = (diskslots/delta_t);
+
+      this->curr_speed = (60.0 / (this->delta_t * this->diskslots)) * 1.0e3;
+
+      return this->curr_speed;
+
+    }
+
+    bool detect_zero_speed() {
+      // ISR timerone setting speed to 0 when wheel is stopped method
+      this->curr_speed_zero = true;
+      // set speed to 0 when wheel is no longer rotating
+      if (this->speed_history_index > (this->speed_history_length - 1)) {
+        this->speed_history_index = 0;
       }
+
+      this->speed_history[this->speed_history_index] = this->curr_speed;
+      this->speed_history_index++;
+
+      for (unsigned i = 0; i < this->speed_history_length - 1; i++) {
+        if (this->speed_history[i] != this->speed_history[0]) {
+          this->curr_speed_zero = false;
+        }
+      }
+
+      return this->curr_speed_zero;
+
     }
-
-    return this->curr_speed_zero;
-
-  }
 
 };
 
 //float fir_coeff1[] = {1,1,1,1, 1,1,1,1};
 float fir_coeff1[] = { 0.0363355740541436573, 0.0615978543451880037,
-    0.0877507540054860286, 0.110613759704731765, 0.126230094818408495,
-    0.1317764226854167, 0.126230094818408495, 0.110613759704731765,
-    0.0877507540054860286, 0.0615978543451880037, 0.0363355740541436573 };
+                       0.0877507540054860286, 0.110613759704731765, 0.126230094818408495,
+                       0.1317764226854167, 0.126230094818408495, 0.110613759704731765,
+                       0.0877507540054860286, 0.0615978543451880037, 0.0363355740541436573
+                     };
 
 //float fir_coeff1[] = { 1,1};
 uint8_t size_fir1 = sizeof(fir_coeff1) / sizeof(float);
@@ -454,13 +460,13 @@ float s4_int_err_his[] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 //PID pid1(0.733704837954405, 5.63837220103501, 0.0238687146770339);
 
 PID pid1(0.260526977432438, 1.41893450525107, 0.0106458398336518,
-    s1_int_err_his, 8);  // this is pretty good with the 10 coeffs lpf
+         s1_int_err_his, 8);  // this is pretty good with the 10 coeffs lpf
 PID pid2(0.260526977432438, 1.41893450525107, 0.0106458398336518,
-    s2_int_err_his, 8);  // this is pretty good with the 10 coeffs lpf
+         s2_int_err_his, 8);  // this is pretty good with the 10 coeffs lpf
 PID pid3(0.260526977432438, 1.41893450525107, 0.0106458398336518,
-    s3_int_err_his, 8);  // this is pretty good with the 10 coeffs lpf
+         s3_int_err_his, 8);  // this is pretty good with the 10 coeffs lpf
 PID pid4(0.260526977432438, 1.41893450525107, 0.0106458398336518,
-    s4_int_err_his, 8);  // this is pretty good with the 10 coeffs lpf
+         s4_int_err_his, 8);  // this is pretty good with the 10 coeffs lpf
 
 //PID pid1(0.81339, 4.414, 0.01356);
 
@@ -565,13 +571,13 @@ void filter_n_compute() {
   mapped_m4_speed = map(constrain(abs(set_m4_speed), 0, 100), 0, 100, 0, 300);
 
   pid_out_motor1_drive_signal = pid1.compute(m1_rpm_filtered, mapped_m1_speed,
-      delta_t);
+                                delta_t);
   pid_out_motor2_drive_signal = pid2.compute(m2_rpm_filtered, mapped_m2_speed,
-      delta_t);
+                                delta_t);
   pid_out_motor3_drive_signal = pid3.compute(m3_rpm_filtered, mapped_m3_speed,
-      delta_t);
+                                delta_t);
   pid_out_motor4_drive_signal = pid4.compute(m4_rpm_filtered, mapped_m4_speed,
-      delta_t);
+                                delta_t);
 
   if (set_m1_speed == 0)
     pid_out_motor1_drive_signal = 0.0 * pid_out_motor1_drive_signal;
@@ -656,6 +662,7 @@ void print_pid_outputs() {
 
 void setup() {
   Serial.begin(115200);
+  //  Serial2.begin(115200); // max78000 comm
   Timer1.initialize(pid_loop_dur_us); // set timer for 1sec
   if (drive_mode == 0 || drive_mode == 2) {
     Serial.println("m1,m2,m3,m4,pid1out,pid2out,pid3out,pid4out");
@@ -664,16 +671,16 @@ void setup() {
 }
 
 Robot my_robot_zero;
+//String commandReadback;
+
+char inBuffer[BUF_SIZE_voice_cmd];
+int numCharsRead = 0;
+char * command;
+char term_character = '-';
 
 void loop() {
 
-  //  Serial.println(my_robot.state->name);
-  //  my_robot.on_event(NAME);
-  //  Serial.println(my_robot.state->name);
-  //  my_robot.on_event(GO);
-  //  Serial.println(my_robot.state->name);
-  //  my_robot.on_event(STOP);
-  //  Serial.println(my_robot.state->name);
+
 
   int turn;
   if (drive_mode == 0) {
@@ -692,21 +699,54 @@ void loop() {
   }
 
   if (drive_mode == 2) {
-    while (Serial.available()) {
-      Serial.readStringUntil('\n').toCharArray(voice_cmd_buffer,
-      BUF_SIZE_voice_cmd);
+    //      while (Serial.available()) {
+    //        //      Serial.readStringUntil('\n').toCharArray(voice_cmd_buffer,
+    //        //          BUF_SIZE_voice_cmd);
+    //        //      Serial2.readStringUntil('\n').toCharArray(voice_cmd_buffer,
+    //        //          BUF_SIZE_voice_cmd);
+    //        //
+    //        Serial.readStringUntil('\0').toCharArray(voice_cmd_buffer,
+    //            BUF_SIZE_voice_cmd);
+    //
+    //        //      commandReadback = Serial.readStringUntil('\0');
+    //
+    //        Serial.println(voice_cmd_buffer);
+    //
+    //      }
+
+
+
+    while (Serial.available() > 0) {
+      // read the incoming bytes
+      numCharsRead = Serial.readBytes(inBuffer, BUF_SIZE_voice_cmd);
+      unsigned int command_length = 0;
+
+      for (int i = 0; inBuffer[i] != term_character; i++) {
+        command_length++;
+      }
+      command = (char *) malloc(command_length + 1);
+      for (int i = 0; i < command_length; i++) {
+        command[i] = inBuffer[i];
+      }
+
+      command[command_length] = '\0';
+      Serial.println(command);
+      my_robot_zero.on_event(command);
+      free(command);
     }
 
-    my_robot_zero.on_event(voice_cmd_buffer);
+    
 
     set_m1_speed = state_machine_motor_speeds[0];
     set_m2_speed = state_machine_motor_speeds[1];
     set_m3_speed = state_machine_motor_speeds[2];
     set_m4_speed = state_machine_motor_speeds[3];
 
-    print_motor_rpm();
-    print_pid_outputs();
-    Serial.println();
+    //    print_motor_rpm();
+    //    print_pid_outputs();
+    //    Serial.println();
+
+
   }
 
   if (drive_mode == 3) { // drive via RPI
@@ -763,5 +803,7 @@ void loop() {
   }
 
   delay(10);
+
+
 
 }
