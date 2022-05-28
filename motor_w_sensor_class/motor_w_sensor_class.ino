@@ -41,7 +41,18 @@ int set_m2_speed;
 int set_m3_speed;
 int set_m4_speed;
 
-int state_machine_motor_speeds[4] = { 0, 0, 0, 0 };
+const byte green_led_pin = 53;
+const byte red_led_pin = 51;
+
+const byte forward_led_pin = 49;
+const byte backward_led_pin = 50;
+const byte left_led_pin = 52;
+const byte right_led_pin = 48;
+
+int state_machine_motor_speeds[10] = { 0, 0, 0, 0 , // motor states
+                                       0, 0, 0, 0, 0, 0 // led states
+                                     };
+//uint8_t led_array[2] = {0, 0};
 
 volatile int mapped_m1_speed;
 volatile int mapped_m2_speed;
@@ -62,9 +73,14 @@ char voice_cmd_buffer[BUF_SIZE_voice_cmd];
 
 // ************************** valid voice commands **************************
 char NAME[] = "ZERO";
-char GO[] = "UP";
+char GO[] = "FOUR";
+char GO1[] = "FORWARD";
 char STOP[] = "STOP";
-char BACK[] = "DOWN";
+char BACK[] = "BACKWARD";
+char LEFT[] = "LEFT";
+char RIGHT[] = "RIGHT";
+char SPIN[] = "WOW";
+char OFF[] = "OFF";
 
 //char NAME[] = "ZERO------";
 //char GO[] =   "UP--------";
@@ -79,8 +95,8 @@ boolean bypass_sensor_filter = false;
 //2 -> drive_via_manual_serial_cmd, for testing with voice cmds via serial
 uint8_t drive_mode = 2;
 
-// ************************** stopped state instance from state.cpp **************************
-extern Stopped stopped_state;
+// ************************** inactive state instance from state.cpp **************************
+extern Inactive inactive_state;
 //extern Active active_state;
 //extern MovingForward moving_forward_state;
 
@@ -103,7 +119,7 @@ void print_motor_speeds() {
 }
 
 Robot::Robot() {
-  this->state = &stopped_state;
+  this->state = &inactive_state;
   this->state->perform_action(state_machine_motor_speeds);
   //  print_motor_speeds();
 }
@@ -662,12 +678,76 @@ void print_pid_outputs() {
 
 void setup() {
   Serial.begin(115200);
+
+  pinMode(green_led_pin, OUTPUT);
+  pinMode(red_led_pin, OUTPUT);
+  pinMode(forward_led_pin, OUTPUT);
+  pinMode(backward_led_pin, OUTPUT);
+  pinMode(left_led_pin, OUTPUT);
+  pinMode(right_led_pin, OUTPUT);
+
+
+  //  digitalWrite(green_led_pin, HIGH);
+
   //  Serial2.begin(115200); // max78000 comm
   Timer1.initialize(pid_loop_dur_us); // set timer for 1sec
   if (drive_mode == 0 || drive_mode == 2) {
     Serial.println("m1,m2,m3,m4,pid1out,pid2out,pid3out,pid4out");
   }
 
+}
+
+void set_leds(int* output_states) {
+
+  digitalWrite(green_led_pin, output_states[4]);
+  digitalWrite(red_led_pin, output_states[5]);
+  digitalWrite(forward_led_pin, output_states[6]);
+  digitalWrite(backward_led_pin, output_states[7]);
+  digitalWrite(left_led_pin, output_states[8]);
+  digitalWrite(right_led_pin, output_states[9]);
+
+  //  if (output_states[4] == 0) {
+  //    digitalWrite(green_led_pin, LOW);
+  //
+  //  }
+  //  else {
+  //    digitalWrite(green_led_pin, HIGH);
+  //  }
+  //
+  //  if (output_states[5] == 0) {
+  //    digitalWrite(red_led_pin, LOW);
+  //  }
+  //  else {
+  //    digitalWrite(red_led_pin, HIGH);
+  //  }
+  //
+  //  if (output_states[6] == 0) {
+  //    digitalWrite(forward_led_pin, LOW);
+  //  }
+  //  else {
+  //    digitalWrite(forward_led_pin, HIGH);
+  //  }
+  //
+  //  if (output_states[7] == 0) {
+  //    digitalWrite(backward_led_pin, LOW);
+  //  }
+  //  else {
+  //    digitalWrite(backward_led_pin, HIGH);
+  //  }
+  //
+  //  if (output_states[8] == 0) {
+  //    digitalWrite(left_led_pin, LOW);
+  //  }
+  //  else {
+  //    digitalWrite(left_led_pin, HIGH);
+  //  }
+  //
+  //  if (output_states[9] == 0) {
+  //    digitalWrite(right_led_pin, LOW);
+  //  }
+  //  else {
+  //    digitalWrite(right_led_pin, HIGH);
+  //  }
 }
 
 Robot my_robot_zero;
@@ -735,7 +815,7 @@ void loop() {
       free(command);
     }
 
-    
+
 
     set_m1_speed = state_machine_motor_speeds[0];
     set_m2_speed = state_machine_motor_speeds[1];
@@ -782,7 +862,7 @@ void loop() {
     // print_motor_rpm();
     // Serial.println();
   }
-
+  set_leds(state_machine_motor_speeds);
   filter_n_compute();
 
   if (bypass_pid_loop) {

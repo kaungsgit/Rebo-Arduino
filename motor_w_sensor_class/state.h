@@ -18,6 +18,13 @@ public:
   void perform_action(int *motor_speeds_gbl);
 };
 
+class Inactive: public State {
+public:
+  Inactive(char *name);
+  State* on_event(char *event);
+  void perform_action(int *motor_speeds_gbl);
+};
+
 class Active: public State {
 public:
   Active(char *name);
@@ -38,5 +45,28 @@ public:
   State* on_event(char *event);
   void perform_action(int *motor_speeds_gbl);
 };
+
+
+class MovingLeft :public State {
+public:
+  MovingLeft(char* name);
+  State* on_event(char* event);
+  void perform_action(int* motor_speeds_gbl);
+};
+
+class MovingRight :public State {
+public:
+  MovingRight(char* name);
+  State* on_event(char* event);
+  void perform_action(int* motor_speeds_gbl);
+};
+
+class Spinning :public State {
+public:
+  Spinning(char* name);
+  State* on_event(char* event);
+  void perform_action(int* motor_speeds_gbl);
+};
+
 
 #endif
