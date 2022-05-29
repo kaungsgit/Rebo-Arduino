@@ -733,13 +733,6 @@ void set_leds(int *output_states) {
   left_led.digital_write(output_states[left_led_]);
   right_led.digital_write(output_states[right_led_]);
 
-  //  digitalWrite(green_led_pin, output_states[4]);
-  //  digitalWrite(red_led_pin, output_states[5]);
-  //  digitalWrite(forward_led_pin, output_states[6]);
-  //  digitalWrite(backward_led_pin, output_states[7]);
-  //  digitalWrite(left_led_pin, output_states[8]);
-  //  digitalWrite(right_led_pin, output_states[9]);
-
 }
 
 Robot my_robot_zero;

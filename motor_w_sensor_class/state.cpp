@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include "state.h"
 
+// ************************** concrete state instances **************************
 char stopped_state_name[] = "stopped_state";
 Stopped stopped_state(stopped_state_name);
 
@@ -26,6 +27,7 @@ MovingRight moving_right_state(moving_right_state_name);
 char spinning_state_name[] = "spinning_state";
 Spinning spinning_state(spinning_state_name);
 
+// ************************** valid voice commands **************************
 extern char NAME[];
 extern char GO[];
 extern char GO1[];
@@ -36,6 +38,7 @@ extern char RIGHT[];
 extern char SPIN[];
 extern char OFF[];
 
+// ************************** output state definitions **************************
 extern const char motor1_;
 extern const char motor2_;
 extern const char motor3_;
@@ -57,6 +60,26 @@ int strlength(char *s) {
   return c;
 }
 
+State* handle_transitions(char *event, State *curr_state) {
+  if (strcmp(event, STOP) == 0) {
+    return &stopped_state;
+  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
+    return &moving_forward_state;
+  } else if (strcmp(event, BACK) == 0) {
+    return &moving_backward_state;
+  } else if (strcmp(event, LEFT) == 0) {
+    return &moving_left_state;
+  } else if (strcmp(event, RIGHT) == 0) {
+    return &moving_right_state;
+  } else if (strcmp(event, SPIN) == 0) {
+    return &spinning_state;
+  } else if (strcmp(event, OFF) == 0) {
+    return &inactive_state;
+  } else {
+    return curr_state;
+  }
+}
+
 State::State(char *name) {
   this->name = name;
 }
@@ -64,13 +87,8 @@ State::State(char *name) {
 void State::print_name(char *name) {
 }
 
-State* State::on_event(char *event) {
-  return this;
-
-}
-
 Inactive::Inactive(char *name) :
-    State(name) {
+  State(name) {
 }
 
 State* Inactive::on_event(char *event) {
@@ -99,27 +117,12 @@ void Inactive::perform_action(int *output_states) {
 
 // Concrete states
 Stopped::Stopped(char *name) :
-    State(name) {
+  State(name) {
 }
 
 State* Stopped::on_event(char *event) {
-  if (strcmp(event, STOP) == 0) {
-    return &stopped_state;
-  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
-    return &moving_forward_state;
-  } else if (strcmp(event, BACK) == 0) {
-    return &moving_backward_state;
-  } else if (strcmp(event, LEFT) == 0) {
-    return &moving_left_state;
-  } else if (strcmp(event, RIGHT) == 0) {
-    return &moving_right_state;
-  } else if (strcmp(event, SPIN) == 0) {
-    return &spinning_state;
-  } else if (strcmp(event, OFF) == 0) {
-    return &inactive_state;
-  } else {
-    return this;
-  }
+
+  return handle_transitions(event, this);
 
 }
 void Stopped::perform_action(int *output_states) {
@@ -139,27 +142,11 @@ void Stopped::perform_action(int *output_states) {
 }
 
 Active::Active(char *name) :
-    State(name) {
+  State(name) {
 }
 
 State* Active::on_event(char *event) {
-  if (strcmp(event, STOP) == 0) {
-    return &stopped_state;
-  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
-    return &moving_forward_state;
-  } else if (strcmp(event, BACK) == 0) {
-    return &moving_backward_state;
-  } else if (strcmp(event, LEFT) == 0) {
-    return &moving_left_state;
-  } else if (strcmp(event, RIGHT) == 0) {
-    return &moving_right_state;
-  } else if (strcmp(event, SPIN) == 0) {
-    return &spinning_state;
-  } else if (strcmp(event, OFF) == 0) {
-    return &inactive_state;
-  } else {
-    return this;
-  }
+  return handle_transitions(event, this);
 
 }
 void Active::perform_action(int *output_states) {
@@ -180,27 +167,11 @@ void Active::perform_action(int *output_states) {
 }
 
 MovingForward::MovingForward(char *name) :
-    State(name) {
+  State(name) {
 }
 
 State* MovingForward::on_event(char *event) {
-  if (strcmp(event, STOP) == 0) {
-    return &stopped_state;
-  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
-    return &moving_forward_state;
-  } else if (strcmp(event, BACK) == 0) {
-    return &moving_backward_state;
-  } else if (strcmp(event, LEFT) == 0) {
-    return &moving_left_state;
-  } else if (strcmp(event, RIGHT) == 0) {
-    return &moving_right_state;
-  } else if (strcmp(event, SPIN) == 0) {
-    return &spinning_state;
-  } else if (strcmp(event, OFF) == 0) {
-    return &inactive_state;
-  } else {
-    return this;
-  }
+  return handle_transitions(event, this);
 
 }
 void MovingForward::perform_action(int *output_states) {
@@ -221,27 +192,11 @@ void MovingForward::perform_action(int *output_states) {
 }
 
 MovingBackward::MovingBackward(char *name) :
-    State(name) {
+  State(name) {
 }
 
 State* MovingBackward::on_event(char *event) {
-  if (strcmp(event, STOP) == 0) {
-    return &stopped_state;
-  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
-    return &moving_forward_state;
-  } else if (strcmp(event, BACK) == 0) {
-    return &moving_backward_state;
-  } else if (strcmp(event, LEFT) == 0) {
-    return &moving_left_state;
-  } else if (strcmp(event, RIGHT) == 0) {
-    return &moving_right_state;
-  } else if (strcmp(event, SPIN) == 0) {
-    return &spinning_state;
-  } else if (strcmp(event, OFF) == 0) {
-    return &inactive_state;
-  } else {
-    return this;
-  }
+  return handle_transitions(event, this);
 
 }
 void MovingBackward::perform_action(int *output_states) {
@@ -261,27 +216,11 @@ void MovingBackward::perform_action(int *output_states) {
 }
 
 MovingLeft::MovingLeft(char *name) :
-    State(name) {
+  State(name) {
 }
 
 State* MovingLeft::on_event(char *event) {
-  if (strcmp(event, STOP) == 0) {
-    return &stopped_state;
-  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
-    return &moving_forward_state;
-  } else if (strcmp(event, BACK) == 0) {
-    return &moving_backward_state;
-  } else if (strcmp(event, LEFT) == 0) {
-    return &moving_left_state;
-  } else if (strcmp(event, RIGHT) == 0) {
-    return &moving_right_state;
-  } else if (strcmp(event, SPIN) == 0) {
-    return &spinning_state;
-  } else if (strcmp(event, OFF) == 0) {
-    return &inactive_state;
-  } else {
-    return this;
-  }
+  return handle_transitions(event, this);
 
 }
 void MovingLeft::perform_action(int *output_states) {
@@ -301,27 +240,11 @@ void MovingLeft::perform_action(int *output_states) {
 }
 
 MovingRight::MovingRight(char *name) :
-    State(name) {
+  State(name) {
 }
 
 State* MovingRight::on_event(char *event) {
-  if (strcmp(event, STOP) == 0) {
-    return &stopped_state;
-  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
-    return &moving_forward_state;
-  } else if (strcmp(event, BACK) == 0) {
-    return &moving_backward_state;
-  } else if (strcmp(event, LEFT) == 0) {
-    return &moving_left_state;
-  } else if (strcmp(event, RIGHT) == 0) {
-    return &moving_right_state;
-  } else if (strcmp(event, SPIN) == 0) {
-    return &spinning_state;
-  } else if (strcmp(event, OFF) == 0) {
-    return &inactive_state;
-  } else {
-    return this;
-  }
+  return handle_transitions(event, this);
 
 }
 void MovingRight::perform_action(int *output_states) {
@@ -341,27 +264,11 @@ void MovingRight::perform_action(int *output_states) {
 }
 
 Spinning::Spinning(char *name) :
-    State(name) {
+  State(name) {
 }
 
 State* Spinning::on_event(char *event) {
-  if (strcmp(event, STOP) == 0) {
-    return &stopped_state;
-  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
-    return &moving_forward_state;
-  } else if (strcmp(event, BACK) == 0) {
-    return &moving_backward_state;
-  } else if (strcmp(event, LEFT) == 0) {
-    return &moving_left_state;
-  } else if (strcmp(event, RIGHT) == 0) {
-    return &moving_right_state;
-  } else if (strcmp(event, SPIN) == 0) {
-    return &spinning_state;
-  } else if (strcmp(event, OFF) == 0) {
-    return &inactive_state;
-  } else {
-    return this;
-  }
+  return handle_transitions(event, this);
 
 }
 void Spinning::perform_action(int *output_states) {

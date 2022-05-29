@@ -7,7 +7,7 @@ class State {
     char *name;
     State(char *name);
     void print_name(char *name);
-    virtual State* on_event(char *event); // this still has default function definition.
+    virtual State* on_event(char *event); // virtual method base definition is useless. All derived classes must implement this method.
     virtual void perform_action(int *output_states) = 0; // this is an interface now, no need for definition in cpp file.
 };
 
