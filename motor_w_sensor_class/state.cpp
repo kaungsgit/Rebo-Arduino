@@ -36,6 +36,18 @@ extern char RIGHT[];
 extern char SPIN[];
 extern char OFF[];
 
+extern const char motor1_;
+extern const char motor2_;
+extern const char motor3_;
+extern const char motor4_;
+
+extern const char green_led_;
+extern const char red_led_;
+extern const char forward_led_;
+extern const char backward_led_;
+extern const char left_led_;
+extern const char right_led_;
+
 int strlength(char *s) {
   int c = 0;
   while (*s != '\0') {
@@ -58,7 +70,7 @@ State* State::on_event(char *event) {
 }
 
 Inactive::Inactive(char *name) :
-  State(name) {
+    State(name) {
 }
 
 State* Inactive::on_event(char *event) {
@@ -69,350 +81,302 @@ State* Inactive::on_event(char *event) {
   }
 
 }
-void Inactive::perform_action(int *motor_speeds_gbl) {
+void Inactive::perform_action(int *output_states) {
   //  cout << "Performing state: ";
-  motor_speeds_gbl[0] = 0;
-  motor_speeds_gbl[1] = 0;
-  motor_speeds_gbl[2] = 0;
-  motor_speeds_gbl[3] = 0;
+  output_states[motor1_] = 0;
+  output_states[motor2_] = 0;
+  output_states[motor3_] = 0;
+  output_states[motor4_] = 0;
 
-  motor_speeds_gbl[4] = 0;
-  motor_speeds_gbl[5] = 0;
-  motor_speeds_gbl[6] = 0;
-  motor_speeds_gbl[7] = 0;
-  motor_speeds_gbl[8] = 0;
-  motor_speeds_gbl[9] = 0;
-
+  output_states[green_led_] = 0;
+  output_states[red_led_] = 0;
+  output_states[forward_led_] = 0;
+  output_states[backward_led_] = 0;
+  output_states[left_led_] = 0;
+  output_states[right_led_] = 0;
 
 }
 
-
 // Concrete states
 Stopped::Stopped(char *name) :
-  State(name) {
+    State(name) {
 }
 
 State* Stopped::on_event(char *event) {
   if (strcmp(event, STOP) == 0) {
     return &stopped_state;
-  }
-  else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
+  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
     return &moving_forward_state;
-  }
-  else if (strcmp(event, BACK) == 0) {
+  } else if (strcmp(event, BACK) == 0) {
     return &moving_backward_state;
-  }
-  else if (strcmp(event, LEFT) == 0) {
+  } else if (strcmp(event, LEFT) == 0) {
     return &moving_left_state;
-  }
-  else if (strcmp(event, RIGHT) == 0) {
+  } else if (strcmp(event, RIGHT) == 0) {
     return &moving_right_state;
-  }
-  else if (strcmp(event, SPIN) == 0) {
+  } else if (strcmp(event, SPIN) == 0) {
     return &spinning_state;
-  }
-  else if (strcmp(event, OFF) == 0) {
+  } else if (strcmp(event, OFF) == 0) {
     return &inactive_state;
-  }
-  else {
+  } else {
     return this;
   }
 
 }
-void Stopped::perform_action(int *motor_speeds_gbl) {
+void Stopped::perform_action(int *output_states) {
   //  cout << "Performing state: ";
-  motor_speeds_gbl[0] = 0;
-  motor_speeds_gbl[1] = 0;
-  motor_speeds_gbl[2] = 0;
-  motor_speeds_gbl[3] = 0;
+  output_states[motor1_] = 0;
+  output_states[motor2_] = 0;
+  output_states[motor3_] = 0;
+  output_states[motor4_] = 0;
 
-  motor_speeds_gbl[4] = 0;
-  motor_speeds_gbl[5] = 1;
-  motor_speeds_gbl[6] = 0;
-  motor_speeds_gbl[7] = 0;
-  motor_speeds_gbl[8] = 0;
-  motor_speeds_gbl[9] = 0;
+  output_states[green_led_] = 0;
+  output_states[red_led_] = 1;
+  output_states[forward_led_] = 0;
+  output_states[backward_led_] = 0;
+  output_states[left_led_] = 0;
+  output_states[right_led_] = 0;
 
 }
 
-
-Active::Active(char* name) : State(name) {
+Active::Active(char *name) :
+    State(name) {
 }
 
-State* Active::on_event(char* event) {
+State* Active::on_event(char *event) {
   if (strcmp(event, STOP) == 0) {
     return &stopped_state;
-  }
-  else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
+  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
     return &moving_forward_state;
-  }
-  else if (strcmp(event, BACK) == 0) {
+  } else if (strcmp(event, BACK) == 0) {
     return &moving_backward_state;
-  }
-  else if (strcmp(event, LEFT) == 0) {
+  } else if (strcmp(event, LEFT) == 0) {
     return &moving_left_state;
-  }
-  else if (strcmp(event, RIGHT) == 0) {
+  } else if (strcmp(event, RIGHT) == 0) {
     return &moving_right_state;
-  }
-  else if (strcmp(event, SPIN) == 0) {
+  } else if (strcmp(event, SPIN) == 0) {
     return &spinning_state;
-  }
-  else if (strcmp(event, OFF) == 0) {
+  } else if (strcmp(event, OFF) == 0) {
     return &inactive_state;
-  }
-  else {
+  } else {
     return this;
   }
 
 }
-void Active::perform_action(int* motor_speeds_gbl) {
+void Active::perform_action(int *output_states) {
   //  cout << "Performing state: ";
   //  print_name(this->name);
-  motor_speeds_gbl[0] = 0;
-  motor_speeds_gbl[1] = 0;
-  motor_speeds_gbl[2] = 0;
-  motor_speeds_gbl[3] = 0;
+  output_states[motor1_] = 0;
+  output_states[motor2_] = 0;
+  output_states[motor3_] = 0;
+  output_states[motor4_] = 0;
 
-  motor_speeds_gbl[4] = 1;
-  motor_speeds_gbl[5] = 0;
-  motor_speeds_gbl[6] = 0;
-  motor_speeds_gbl[7] = 0;
-  motor_speeds_gbl[8] = 0;
-  motor_speeds_gbl[9] = 0;
-
+  output_states[green_led_] = 1;
+  output_states[red_led_] = 0;
+  output_states[forward_led_] = 0;
+  output_states[backward_led_] = 0;
+  output_states[left_led_] = 0;
+  output_states[right_led_] = 0;
 
 }
 
-
-MovingForward::MovingForward(char* name) : State(name) {
+MovingForward::MovingForward(char *name) :
+    State(name) {
 }
 
-State* MovingForward::on_event(char* event) {
+State* MovingForward::on_event(char *event) {
   if (strcmp(event, STOP) == 0) {
     return &stopped_state;
-  }
-  else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
+  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
     return &moving_forward_state;
-  }
-  else if (strcmp(event, BACK) == 0) {
+  } else if (strcmp(event, BACK) == 0) {
     return &moving_backward_state;
-  }
-  else if (strcmp(event, LEFT) == 0) {
+  } else if (strcmp(event, LEFT) == 0) {
     return &moving_left_state;
-  }
-  else if (strcmp(event, RIGHT) == 0) {
+  } else if (strcmp(event, RIGHT) == 0) {
     return &moving_right_state;
-  }
-  else if (strcmp(event, SPIN) == 0) {
+  } else if (strcmp(event, SPIN) == 0) {
     return &spinning_state;
-  }
-  else if (strcmp(event, OFF) == 0) {
+  } else if (strcmp(event, OFF) == 0) {
     return &inactive_state;
-  }
-  else {
+  } else {
     return this;
   }
 
 }
-void MovingForward::perform_action(int* motor_speeds_gbl) {
+void MovingForward::perform_action(int *output_states) {
   //  cout << "Performing state: ";
   //  print_name(this->name);
-  motor_speeds_gbl[0] = 30;
-  motor_speeds_gbl[1] = 30;
-  motor_speeds_gbl[2] = 30;
-  motor_speeds_gbl[3] = 30;
+  output_states[motor1_] = 30;
+  output_states[motor2_] = 30;
+  output_states[motor3_] = 30;
+  output_states[motor4_] = 30;
 
-  motor_speeds_gbl[4] = 1;
-  motor_speeds_gbl[5] = 0;
-  motor_speeds_gbl[6] = 1;
-  motor_speeds_gbl[7] = 0;
-  motor_speeds_gbl[8] = 0;
-  motor_speeds_gbl[9] = 0;
+  output_states[green_led_] = 1;
+  output_states[red_led_] = 0;
+  output_states[forward_led_] = 1;
+  output_states[backward_led_] = 0;
+  output_states[left_led_] = 0;
+  output_states[right_led_] = 0;
 
 }
 
-MovingBackward::MovingBackward(char* name) : State(name) {
+MovingBackward::MovingBackward(char *name) :
+    State(name) {
 }
 
-State* MovingBackward::on_event(char* event) {
+State* MovingBackward::on_event(char *event) {
   if (strcmp(event, STOP) == 0) {
     return &stopped_state;
-  }
-  else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
+  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
     return &moving_forward_state;
-  }
-  else if (strcmp(event, BACK) == 0) {
+  } else if (strcmp(event, BACK) == 0) {
     return &moving_backward_state;
-  }
-  else if (strcmp(event, LEFT) == 0) {
+  } else if (strcmp(event, LEFT) == 0) {
     return &moving_left_state;
-  }
-  else if (strcmp(event, RIGHT) == 0) {
+  } else if (strcmp(event, RIGHT) == 0) {
     return &moving_right_state;
-  }
-  else if (strcmp(event, SPIN) == 0) {
+  } else if (strcmp(event, SPIN) == 0) {
     return &spinning_state;
-  }
-  else if (strcmp(event, OFF) == 0) {
+  } else if (strcmp(event, OFF) == 0) {
     return &inactive_state;
-  }
-  else {
+  } else {
     return this;
   }
 
 }
-void MovingBackward::perform_action(int* motor_speeds_gbl) {
+void MovingBackward::perform_action(int *output_states) {
   //  cout << "Performing state: ";
   //  print_name(this->name);
-  motor_speeds_gbl[0] = -30;
-  motor_speeds_gbl[1] = -30;
-  motor_speeds_gbl[2] = -30;
-  motor_speeds_gbl[3] = -30;
+  output_states[motor1_] = -30;
+  output_states[motor2_] = -30;
+  output_states[motor3_] = -30;
+  output_states[motor4_] = -30;
 
-  motor_speeds_gbl[4] = 1;
-  motor_speeds_gbl[5] = 0;
-  motor_speeds_gbl[6] = 0;
-  motor_speeds_gbl[7] = 1;
-  motor_speeds_gbl[8] = 0;
-  motor_speeds_gbl[9] = 0;
+  output_states[green_led_] = 1;
+  output_states[red_led_] = 0;
+  output_states[forward_led_] = 0;
+  output_states[backward_led_] = 1;
+  output_states[left_led_] = 0;
+  output_states[right_led_] = 0;
 }
 
-MovingLeft::MovingLeft(char* name) : State(name) {
+MovingLeft::MovingLeft(char *name) :
+    State(name) {
 }
 
-State* MovingLeft::on_event(char* event) {
+State* MovingLeft::on_event(char *event) {
   if (strcmp(event, STOP) == 0) {
     return &stopped_state;
-  }
-  else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
+  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
     return &moving_forward_state;
-  }
-  else if (strcmp(event, BACK) == 0) {
+  } else if (strcmp(event, BACK) == 0) {
     return &moving_backward_state;
-  }
-  else if (strcmp(event, LEFT) == 0) {
+  } else if (strcmp(event, LEFT) == 0) {
     return &moving_left_state;
-  }
-  else if (strcmp(event, RIGHT) == 0) {
+  } else if (strcmp(event, RIGHT) == 0) {
     return &moving_right_state;
-  }
-  else if (strcmp(event, SPIN) == 0) {
+  } else if (strcmp(event, SPIN) == 0) {
     return &spinning_state;
-  }
-  else if (strcmp(event, OFF) == 0) {
+  } else if (strcmp(event, OFF) == 0) {
     return &inactive_state;
-  }
-  else {
+  } else {
     return this;
   }
 
 }
-void MovingLeft::perform_action(int* motor_speeds_gbl) {
+void MovingLeft::perform_action(int *output_states) {
   //  cout << "Performing state: ";
   //  print_name(this->name);
-  motor_speeds_gbl[0] = +30;
-  motor_speeds_gbl[1] = -30;
-  motor_speeds_gbl[2] = +30;
-  motor_speeds_gbl[3] = -30;
+  output_states[motor1_] = +30;
+  output_states[motor2_] = -30;
+  output_states[motor3_] = +30;
+  output_states[motor4_] = -30;
 
-  motor_speeds_gbl[4] = 1;
-  motor_speeds_gbl[5] = 0;
-  motor_speeds_gbl[6] = 0;
-  motor_speeds_gbl[7] = 0;
-  motor_speeds_gbl[8] = 1;
-  motor_speeds_gbl[9] = 0;
+  output_states[green_led_] = 1;
+  output_states[red_led_] = 0;
+  output_states[forward_led_] = 0;
+  output_states[backward_led_] = 0;
+  output_states[left_led_] = 1;
+  output_states[right_led_] = 0;
 }
 
-MovingRight::MovingRight(char* name) : State(name) {
+MovingRight::MovingRight(char *name) :
+    State(name) {
 }
 
-State* MovingRight::on_event(char* event) {
+State* MovingRight::on_event(char *event) {
   if (strcmp(event, STOP) == 0) {
     return &stopped_state;
-  }
-  else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
+  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
     return &moving_forward_state;
-  }
-  else if (strcmp(event, BACK) == 0) {
+  } else if (strcmp(event, BACK) == 0) {
     return &moving_backward_state;
-  }
-  else if (strcmp(event, LEFT) == 0) {
+  } else if (strcmp(event, LEFT) == 0) {
     return &moving_left_state;
-  }
-  else if (strcmp(event, RIGHT) == 0) {
+  } else if (strcmp(event, RIGHT) == 0) {
     return &moving_right_state;
-  }
-  else if (strcmp(event, SPIN) == 0) {
+  } else if (strcmp(event, SPIN) == 0) {
     return &spinning_state;
-  }
-  else if (strcmp(event, OFF) == 0) {
+  } else if (strcmp(event, OFF) == 0) {
     return &inactive_state;
-  }
-  else {
+  } else {
     return this;
   }
 
 }
-void MovingRight::perform_action(int* motor_speeds_gbl) {
+void MovingRight::perform_action(int *output_states) {
   //  cout << "Performing state: ";
   //  print_name(this->name);
-  motor_speeds_gbl[0] = -30;
-  motor_speeds_gbl[1] = +30;
-  motor_speeds_gbl[2] = -30;
-  motor_speeds_gbl[3] = +30;
+  output_states[motor1_] = -30;
+  output_states[motor2_] = +30;
+  output_states[motor3_] = -30;
+  output_states[motor4_] = +30;
 
-  motor_speeds_gbl[4] = 1;
-  motor_speeds_gbl[5] = 0;
-  motor_speeds_gbl[6] = 0;
-  motor_speeds_gbl[7] = 0;
-  motor_speeds_gbl[8] = 0;
-  motor_speeds_gbl[9] = 1;
+  output_states[green_led_] = 1;
+  output_states[red_led_] = 0;
+  output_states[forward_led_] = 0;
+  output_states[backward_led_] = 0;
+  output_states[left_led_] = 0;
+  output_states[right_led_] = 1;
 }
 
-Spinning::Spinning(char* name) : State(name) {
+Spinning::Spinning(char *name) :
+    State(name) {
 }
 
-State* Spinning::on_event(char* event) {
+State* Spinning::on_event(char *event) {
   if (strcmp(event, STOP) == 0) {
     return &stopped_state;
-  }
-  else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
+  } else if ((strcmp(event, GO) == 0) || (strcmp(event, GO1) == 0)) {
     return &moving_forward_state;
-  }
-  else if (strcmp(event, BACK) == 0) {
+  } else if (strcmp(event, BACK) == 0) {
     return &moving_backward_state;
-  }
-  else if (strcmp(event, LEFT) == 0) {
+  } else if (strcmp(event, LEFT) == 0) {
     return &moving_left_state;
-  }
-  else if (strcmp(event, RIGHT) == 0) {
+  } else if (strcmp(event, RIGHT) == 0) {
     return &moving_right_state;
-  }
-  else if (strcmp(event, SPIN) == 0) {
+  } else if (strcmp(event, SPIN) == 0) {
     return &spinning_state;
-  }
-  else if (strcmp(event, OFF) == 0) {
+  } else if (strcmp(event, OFF) == 0) {
     return &inactive_state;
-  }
-  else {
+  } else {
     return this;
   }
 
 }
-void Spinning::perform_action(int* motor_speeds_gbl) {
+void Spinning::perform_action(int *output_states) {
   //  cout << "Performing state: ";
   //  print_name(this->name);
-  motor_speeds_gbl[0] = -30;
-  motor_speeds_gbl[1] = +30;
-  motor_speeds_gbl[2] = +30;
-  motor_speeds_gbl[3] = -30;
+  output_states[motor1_] = -30;
+  output_states[motor2_] = +30;
+  output_states[motor3_] = +30;
+  output_states[motor4_] = -30;
 
-  motor_speeds_gbl[4] = 1;
-  motor_speeds_gbl[5] = 0;
-  motor_speeds_gbl[6] = 1;
-  motor_speeds_gbl[7] = 1;
-  motor_speeds_gbl[8] = 1;
-  motor_speeds_gbl[9] = 1;
+  output_states[green_led_] = 1;
+  output_states[red_led_] = 0;
+  output_states[forward_led_] = 1;
+  output_states[backward_led_] = 1;
+  output_states[left_led_] = 1;
+  output_states[right_led_] = 1;
 
 }

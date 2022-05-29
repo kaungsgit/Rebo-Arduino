@@ -49,10 +49,9 @@ const byte backward_led_pin = 50;
 const byte left_led_pin = 52;
 const byte right_led_pin = 48;
 
-int state_machine_motor_speeds[10] = { 0, 0, 0, 0 , // motor states
-                                       0, 0, 0, 0, 0, 0 // led states
-                                     };
-//uint8_t led_array[2] = {0, 0};
+int robot_output_states[10] = { 0, 0, 0, 0, // 0-100 otor speed states, motor 1,2,3,4
+                                0, 0, 0, 0, 0, 0 // 0-1 led states, green, red, forward, backward, left, right
+                              };
 
 volatile int mapped_m1_speed;
 volatile int mapped_m2_speed;
@@ -63,13 +62,11 @@ volatile int mapped_m4_speed;
 //char receivedChars[numChars];   // an array to store the received data
 //boolean newData = false;
 
-const unsigned int MAX_MESSAGE_LENGTH = 20;
-String global_message;
-int global_int;
+const unsigned int RPI_MAX_MESSAGE_LENGTH = 20;
 
 // ************************** voice cmd buffer **************************
-#define BUF_SIZE_voice_cmd 10
-char voice_cmd_buffer[BUF_SIZE_voice_cmd];
+#define BUF_SIZE_VOICE_CMD 10
+char voice_cmd_buffer[BUF_SIZE_VOICE_CMD];
 
 // ************************** valid voice commands **************************
 char NAME[] = "ZERO";
@@ -82,10 +79,20 @@ char RIGHT[] = "RIGHT";
 char SPIN[] = "WOW";
 char OFF[] = "OFF";
 
-//char NAME[] = "ZERO------";
-//char GO[] =   "UP--------";
-//char STOP[] = "STOP------";
-//char BACK[] = "DOWN------";
+// ************************** output state definitions **************************
+// https://forum.arduino.cc/t/linker-problems-with-extern-const-struct/647136/5
+// const variables need extern in definition
+extern const char motor1_ = 0;
+extern const char motor2_ = 1;
+extern const char motor3_ = 2;
+extern const char motor4_ = 3;
+
+extern const char green_led_ = 4;
+extern const char red_led_ = 5;
+extern const char forward_led_ = 6;
+extern const char backward_led_ = 7;
+extern const char left_led_ = 8;
+extern const char right_led_ = 9;
 
 // ************************** valid operation modes **************************
 boolean bypass_pid_loop = false;
@@ -97,8 +104,17 @@ uint8_t drive_mode = 2;
 
 // ************************** inactive state instance from state.cpp **************************
 extern Inactive inactive_state;
-//extern Active active_state;
-//extern MovingForward moving_forward_state;
+
+void print_motor_speeds() {
+  Serial.print(robot_output_states[motor1_]);
+  Serial.print(",");
+  Serial.print(robot_output_states[motor2_]);
+  Serial.print(",");
+  Serial.print(robot_output_states[motor3_]);
+  Serial.print(",");
+  Serial.print(robot_output_states[motor4_]);
+  Serial.println();
+}
 
 class Robot {
   public:
@@ -107,20 +123,9 @@ class Robot {
     void on_event(char *event);
 };
 
-void print_motor_speeds() {
-  Serial.print(state_machine_motor_speeds[0]);
-  Serial.print(",");
-  Serial.print(state_machine_motor_speeds[1]);
-  Serial.print(",");
-  Serial.print(state_machine_motor_speeds[2]);
-  Serial.print(",");
-  Serial.print(state_machine_motor_speeds[3]);
-  Serial.println();
-}
-
 Robot::Robot() {
   this->state = &inactive_state;
-  this->state->perform_action(state_machine_motor_speeds);
+  this->state->perform_action(robot_output_states);
   //  print_motor_speeds();
 }
 void Robot::on_event(char *event) {
@@ -128,10 +133,25 @@ void Robot::on_event(char *event) {
   this->state = this->state->on_event(event);
   State *curr_state = state;
   if (prev_state != curr_state) {
-    state->perform_action(state_machine_motor_speeds);
+    state->perform_action(robot_output_states);
     //    print_motor_speeds();
   }
 }
+
+class Led {
+  public:
+    byte pin_num;
+    Led(byte pin_num) {
+      this->pin_num = pin_num;
+      pinMode(this->pin_num, OUTPUT);
+
+    }
+
+    void digital_write(int value) {
+      digitalWrite(this->pin_num, value);
+    }
+
+};
 
 class Motor {
   private:
@@ -195,6 +215,21 @@ Motor motor1(4, 22, 23);
 Motor motor2(5, 25, 24);
 Motor motor3(6, 26, 27);
 Motor motor4(7, 28, 29);
+
+//const byte green_led_pin = 53;
+//const byte red_led_pin = 51;
+//
+//const byte forward_led_pin = 49;
+//const byte backward_led_pin = 50;
+//const byte left_led_pin = 52;
+//const byte right_led_pin = 48;
+
+Led green_led(green_led_pin);
+Led red_led(red_led_pin);
+Led forward_led(forward_led_pin);
+Led backward_led(backward_led_pin);
+Led left_led(left_led_pin);
+Led right_led(right_led_pin);
 
 void rotate(float turn_speed) {
 
@@ -340,7 +375,7 @@ class FIR {
 
     }
 
-    float FIR_filter_update_c(float inp) {
+    float compute(float inp) {
       this->buf[this->buf_index] = inp;
 
       this->buf_index++;
@@ -531,8 +566,6 @@ void ISR_timerone() {
 }
 
 void filter_n_compute() {
-  //    Timer1.detachInterrupt();  // Stop the timer
-  // this ISR is doing a lot of stuff! Need to move this to main loop
 
   float m1_rpm_local;
   float m2_rpm_local;
@@ -555,10 +588,10 @@ void filter_n_compute() {
     m4_rpm_filtered = m4_rpm_local;
 
   } else {
-    m1_rpm_filtered = fir1.FIR_filter_update_c(m1_rpm_local);
-    m2_rpm_filtered = fir2.FIR_filter_update_c(m2_rpm_local);
-    m3_rpm_filtered = fir3.FIR_filter_update_c(m3_rpm_local);
-    m4_rpm_filtered = fir4.FIR_filter_update_c(m4_rpm_local);
+    m1_rpm_filtered = fir1.compute(m1_rpm_local);
+    m2_rpm_filtered = fir2.compute(m2_rpm_local);
+    m3_rpm_filtered = fir3.compute(m3_rpm_local);
+    m4_rpm_filtered = fir4.compute(m4_rpm_local);
   }
   //    m1_rpm_filtered = sensor1.curr_speed;
   //    m1_rpm_filtered = fir2.FIR_filter_update_c(sensor1.curr_speed);   // sensor1.curr_speed becomes 0 every 4 or so samples, seems that accessing the object's attribute doesn't work too well. Temp solution is to use global var
@@ -633,7 +666,7 @@ void filter_n_compute() {
 
 void read_data_from_RPI() {
   while (Serial.available()) {
-    static char message[MAX_MESSAGE_LENGTH];
+    static char message[RPI_MAX_MESSAGE_LENGTH];
     static unsigned int message_pos = 0;
 
     char inByte = Serial.read();
@@ -647,9 +680,7 @@ void read_data_from_RPI() {
       message[message_pos] = '\0';
       Serial.println(message);
       message_pos = 0;
-      //      global_message = message;
       joystick_data = message;
-      //      Serial.println(global_message);
     }
   }
 }
@@ -679,17 +710,13 @@ void print_pid_outputs() {
 void setup() {
   Serial.begin(115200);
 
-  pinMode(green_led_pin, OUTPUT);
-  pinMode(red_led_pin, OUTPUT);
-  pinMode(forward_led_pin, OUTPUT);
-  pinMode(backward_led_pin, OUTPUT);
-  pinMode(left_led_pin, OUTPUT);
-  pinMode(right_led_pin, OUTPUT);
+  //  pinMode(green_led_pin, OUTPUT);
+  //  pinMode(red_led_pin, OUTPUT);
+  //  pinMode(forward_led_pin, OUTPUT);
+  //  pinMode(backward_led_pin, OUTPUT);
+  //  pinMode(left_led_pin, OUTPUT);
+  //  pinMode(right_led_pin, OUTPUT);
 
-
-  //  digitalWrite(green_led_pin, HIGH);
-
-  //  Serial2.begin(115200); // max78000 comm
   Timer1.initialize(pid_loop_dur_us); // set timer for 1sec
   if (drive_mode == 0 || drive_mode == 2) {
     Serial.println("m1,m2,m3,m4,pid1out,pid2out,pid3out,pid4out");
@@ -697,70 +724,33 @@ void setup() {
 
 }
 
-void set_leds(int* output_states) {
+void set_leds(int *output_states) {
 
-  digitalWrite(green_led_pin, output_states[4]);
-  digitalWrite(red_led_pin, output_states[5]);
-  digitalWrite(forward_led_pin, output_states[6]);
-  digitalWrite(backward_led_pin, output_states[7]);
-  digitalWrite(left_led_pin, output_states[8]);
-  digitalWrite(right_led_pin, output_states[9]);
+  green_led.digital_write(output_states[green_led_]);
+  red_led.digital_write(output_states[red_led_]);
+  forward_led.digital_write(output_states[forward_led_]);
+  backward_led.digital_write(output_states[backward_led_]);
+  left_led.digital_write(output_states[left_led_]);
+  right_led.digital_write(output_states[right_led_]);
 
-  //  if (output_states[4] == 0) {
-  //    digitalWrite(green_led_pin, LOW);
-  //
-  //  }
-  //  else {
-  //    digitalWrite(green_led_pin, HIGH);
-  //  }
-  //
-  //  if (output_states[5] == 0) {
-  //    digitalWrite(red_led_pin, LOW);
-  //  }
-  //  else {
-  //    digitalWrite(red_led_pin, HIGH);
-  //  }
-  //
-  //  if (output_states[6] == 0) {
-  //    digitalWrite(forward_led_pin, LOW);
-  //  }
-  //  else {
-  //    digitalWrite(forward_led_pin, HIGH);
-  //  }
-  //
-  //  if (output_states[7] == 0) {
-  //    digitalWrite(backward_led_pin, LOW);
-  //  }
-  //  else {
-  //    digitalWrite(backward_led_pin, HIGH);
-  //  }
-  //
-  //  if (output_states[8] == 0) {
-  //    digitalWrite(left_led_pin, LOW);
-  //  }
-  //  else {
-  //    digitalWrite(left_led_pin, HIGH);
-  //  }
-  //
-  //  if (output_states[9] == 0) {
-  //    digitalWrite(right_led_pin, LOW);
-  //  }
-  //  else {
-  //    digitalWrite(right_led_pin, HIGH);
-  //  }
+  //  digitalWrite(green_led_pin, output_states[4]);
+  //  digitalWrite(red_led_pin, output_states[5]);
+  //  digitalWrite(forward_led_pin, output_states[6]);
+  //  digitalWrite(backward_led_pin, output_states[7]);
+  //  digitalWrite(left_led_pin, output_states[8]);
+  //  digitalWrite(right_led_pin, output_states[9]);
+
 }
 
 Robot my_robot_zero;
 //String commandReadback;
 
-char inBuffer[BUF_SIZE_voice_cmd];
+char inBuffer[BUF_SIZE_VOICE_CMD];
 int numCharsRead = 0;
-char * command;
+char *command;
 char term_character = '-';
 
 void loop() {
-
-
 
   int turn;
   if (drive_mode == 0) {
@@ -794,17 +784,15 @@ void loop() {
     //
     //      }
 
-
-
     while (Serial.available() > 0) {
       // read the incoming bytes
-      numCharsRead = Serial.readBytes(inBuffer, BUF_SIZE_voice_cmd);
+      numCharsRead = Serial.readBytes(inBuffer, BUF_SIZE_VOICE_CMD);
       unsigned int command_length = 0;
 
       for (int i = 0; inBuffer[i] != term_character; i++) {
         command_length++;
       }
-      command = (char *) malloc(command_length + 1);
+      command = (char*) malloc(command_length + 1);
       for (int i = 0; i < command_length; i++) {
         command[i] = inBuffer[i];
       }
@@ -815,17 +803,14 @@ void loop() {
       free(command);
     }
 
-
-
-    set_m1_speed = state_machine_motor_speeds[0];
-    set_m2_speed = state_machine_motor_speeds[1];
-    set_m3_speed = state_machine_motor_speeds[2];
-    set_m4_speed = state_machine_motor_speeds[3];
+    set_m1_speed = robot_output_states[motor1_];
+    set_m2_speed = robot_output_states[motor2_];
+    set_m3_speed = robot_output_states[motor3_];
+    set_m4_speed = robot_output_states[motor4_];
 
     //    print_motor_rpm();
     //    print_pid_outputs();
     //    Serial.println();
-
 
   }
 
@@ -862,7 +847,7 @@ void loop() {
     // print_motor_rpm();
     // Serial.println();
   }
-  set_leds(state_machine_motor_speeds);
+  set_leds(robot_output_states);
   filter_n_compute();
 
   if (bypass_pid_loop) {
@@ -883,7 +868,5 @@ void loop() {
   }
 
   delay(10);
-
-
 
 }
