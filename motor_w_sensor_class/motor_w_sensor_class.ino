@@ -77,6 +77,7 @@ char BACK[] = "BACKWARD";
 char LEFT[] = "LEFT";
 char RIGHT[] = "RIGHT";
 char SPIN[] = "WOW";
+char SPIN1[] = "SPIN";
 char OFF[] = "OFF";
 
 // ************************** output state definitions **************************
@@ -780,6 +781,7 @@ void loop() {
     while (Serial.available() > 0) {
       // read the incoming bytes
       numCharsRead = Serial.readBytes(inBuffer, BUF_SIZE_VOICE_CMD);
+      Serial.println(inBuffer);
       unsigned int command_length = 0;
 
       for (int i = 0; inBuffer[i] != term_character; i++) {

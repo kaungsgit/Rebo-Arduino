@@ -36,6 +36,7 @@ extern char BACK[];
 extern char LEFT[];
 extern char RIGHT[];
 extern char SPIN[];
+extern char SPIN1[];
 extern char OFF[];
 
 // ************************** output state definitions **************************
@@ -71,7 +72,7 @@ State* handle_transitions(char *event, State *curr_state) {
     return &moving_left_state;
   } else if (strcmp(event, RIGHT) == 0) {
     return &moving_right_state;
-  } else if (strcmp(event, SPIN) == 0) {
+  } else if ((strcmp(event, SPIN) == 0) || (strcmp(event, SPIN1) == 0)) {
     return &spinning_state;
   } else if (strcmp(event, OFF) == 0) {
     return &inactive_state;
